@@ -252,48 +252,58 @@ void deleteTexture(void)
 // This method updates the particles by moving particle positions
 // according to the velocity field and time step. That is, for each
 // particle: p(t+1) = p(t) + dt * v(p(t)).
-//__global__ void
-//advectParticles_k(cData *part, cData *v, int dx, int dy,
-//                  float dt, int lb, size_t pitch)
-//{
-//
-//    int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-//    int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-//    int p;
-//
-//    // gtidx is the domain location in x for this thread
-//    cData pterm, vterm;
-//
-//    if (gtidx < dx)
-//    {
-//        for (p = 0; p < lb; p++)
-//        {
-//            // fi is the domain location in y for this thread
-//            int fi = gtidy + p;
-//
-//            if (fi < dy)
-//            {
-//                int fj = fi * dx + gtidx;
-//                pterm = part[fj];
-//
-//                int xvi = ((int)(pterm.x * dx));
-//                int yvi = ((int)(pterm.y * dy));
-//                vterm = *((cData *)((char *)v + yvi * pitch) + xvi);
-//
-//                pterm.x += dt * vterm.x;
-//                pterm.x = pterm.x - (int)pterm.x;
-//                pterm.x += 1.f;
-//                pterm.x = pterm.x - (int)pterm.x;
-//                pterm.y += dt * vterm.y;
-//                pterm.y = pterm.y - (int)pterm.y;
-//                pterm.y += 1.f;
-//                pterm.y = pterm.y - (int)pterm.y;
-//
-//                part[fj] = pterm;
-//            }
-//        } // If this thread is inside the domain in Y
-//    } // If this thread is inside the domain in X
-//}
+__global__ void
+advectParticles_k(cData *part, cData *v, int dx, int dy,
+                  float dt, int lb, size_t pitch)
+{
+
+    int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+    int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+    int p;
+
+    // gtidx is the domain location in x for this thread
+    cData pterm, vterm;
+
+    if (gtidx < dx)
+    {
+        for (p = 0; p < lb; p++)
+        {
+            // fi is the domain location in y for this thread
+            int fi = gtidy + p;
+
+            if (fi < dy)
+            {
+                int fj = fi * dx + gtidx;
+                pterm = part[6*fj];
+
+                int xvi = ((int)(pterm.x * dx));
+                int yvi = ((int)(pterm.y * dy));
+                vterm = *((cData *)((char *)v + yvi * pitch) + xvi);
+
+                pterm.x += dt * vterm.x;
+                pterm.x = pterm.x - (int)pterm.x;
+                pterm.x += 1.f;
+                pterm.x = pterm.x - (int)pterm.x;
+                pterm.y += dt * vterm.y;
+                pterm.y = pterm.y - (int)pterm.y;
+                pterm.y += 1.f;
+                pterm.y = pterm.y - (int)pterm.y;
+
+                part[6*fj] = pterm;
+				part[6 * fj + 1].x = pterm.x + 0.02;
+				part[6 * fj + 1].y = pterm.y + 0.02;
+				part[6 * fj + 2].x = pterm.x;
+				part[6 * fj + 2].y = pterm.y;
+				part[6 * fj + 3].x = pterm.x + 0.01;
+				part[6 * fj + 3].y = pterm.y;
+				part[6 * fj + 4].x = pterm.x;
+				part[6 * fj + 4].y = pterm.y;
+				part[6 * fj + 5].x = pterm.x;
+				part[6 * fj + 5].y = pterm.y + 0.01;
+            }
+        } // If this thread is inside the domain in Y
+    } // If this thread is inside the domain in X
+}
 //
 //
 //// These are the external function calls necessary for launching fluid simulation
@@ -352,8 +362,8 @@ void deleteTexture(void)
 extern "C"
 void advectParticles(GLuint vbo, cData *v, int dx, int dy, float dt)
 {
-    dim3 grid((dx/TILEX)+(!(dx%TILEX)?0:1), (dy/TILEY)+(!(dy%TILEY)?0:1));
-    dim3 tids(TIDSX, TIDSY);
+    dim3 grid(1, 1);
+    dim3 tids(SHORE, 1);
 
     cData *p;
     cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
@@ -364,7 +374,7 @@ void advectParticles(GLuint vbo, cData *v, int dx, int dy, float dt)
                                          cuda_vbo_resource);
     getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
-    //advectParticles_k<<<grid, tids>>>(p, v, dx, dy, dt, TILEY/TIDSY, tPitch);
+    advectParticles_k<<<grid, tids>>>(p, v, SHORE, 1, dt, 1, tPitch);
     //getLastCudaError("advectParticles_k failed.");
 
     cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);

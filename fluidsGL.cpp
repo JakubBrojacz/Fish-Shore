@@ -272,7 +272,7 @@ void keyboard(unsigned char key, int x, int y)
 #endif
 		break;
 
-	case 'r':
+	/*case 'r':
 		memset(hvfield, 0, sizeof(cData) * SHORE);
 		cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,
 			cudaMemcpyHostToDevice);
@@ -291,7 +291,7 @@ void keyboard(unsigned char key, int x, int y)
 		cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsMapFlagsNone);
 
 		getLastCudaError("cudaGraphicsGLRegisterBuffer failed");
-		break;
+		break;*/
 
 	default:
 		break;
@@ -444,6 +444,8 @@ int main(int argc, char** argv)
 
 	hvfield = (cData*)malloc(sizeof(cData) * SHORE);
 	memset(hvfield, 0, sizeof(cData) * SHORE);
+	for (int i = 0; i < SHORE; i++)
+		hvfield[i].y = 0.01;
 
 	// Allocate and initialize device data
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
