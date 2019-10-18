@@ -14,9 +14,6 @@
 // Vector data type used to velocity and force fields
 typedef float2 cData;
 
-void setupTexture(int x, int y);
-void deleteTexture(void);
-
 // This method adds constant force vectors to the velocity field
 // stored in 'v' according to v(x,t+1) = v(x,t) + dt * f.
 __global__ void

@@ -27,50 +27,9 @@
 
 #define M_PI 3.14159265
 
-// Texture object for reading velocity field
-cudaTextureObject_t     texObj;
-static cudaArray* array = NULL;
-
 // Particle data
 extern GLuint vbo;                 // OpenGL vertex buffer object
 extern struct cudaGraphicsResource* cuda_vbo_resource; // handles OpenGL-CUDA exchange
-
-// Texture pitch
-extern size_t tPitch;
-extern cufftHandle planr2c;
-extern cufftHandle planc2r;
-cData* vxfield = NULL;
-cData* vyfield = NULL;
-
-void setupTexture(int x, int y)
-{
-	cudaChannelFormatDesc desc = cudaCreateChannelDesc<float2>();
-
-	cudaMallocArray(&array, &desc, y, x);
-	getLastCudaError("cudaMalloc failed");
-
-	cudaResourceDesc            texRes;
-	memset(&texRes, 0, sizeof(cudaResourceDesc));
-
-	texRes.resType = cudaResourceTypeArray;
-	texRes.res.array.array = array;
-
-	cudaTextureDesc             texDescr;
-	memset(&texDescr, 0, sizeof(cudaTextureDesc));
-
-	texDescr.normalizedCoords = false;
-	texDescr.filterMode = cudaFilterModeLinear;
-	texDescr.addressMode[0] = cudaAddressModeWrap;
-	texDescr.readMode = cudaReadModeElementType;
-
-	checkCudaErrors(cudaCreateTextureObject(&texObj, &texRes, &texDescr, NULL));
-}
-
-void deleteTexture(void)
-{
-	checkCudaErrors(cudaDestroyTextureObject(texObj));
-	checkCudaErrors(cudaFreeArray(array));
-}
 
 
 __device__ inline float getSquaredDistance(cData c1, cData c2)
@@ -186,7 +145,7 @@ void advectParticles(GLuint vbo, cData * v, float* alpha, int dx, int dy, float 
 
 	//cohesion_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, tPitch);
 	//applyForces_k <<<grid, tids>>> (v, f, SHORE, 1, dt, 1, tPitch)
-	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, tPitch);
+	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, 0);
 	//getLastCudaError("advectParticles_k failed.");
 
 	cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);

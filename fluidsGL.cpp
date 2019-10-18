@@ -97,19 +97,11 @@ bool g_bExitESC = false;
 // CheckFBO/BackBuffer class objects
 CheckRender* g_CheckRender = NULL;
 
-//extern "C" void addForces(cData *v, int dx, int dy, int spx, int spy, float fx, float fy, int r);
-//extern "C" void advectVelocity(cData *v, float *vx, float *vy, int dx, int pdx, int dy, float dt);
-//extern "C" void diffuseProject(cData *vx, cData *vy, int dx, int dy, float dt, float visc);
-//extern "C" void updateVelocity(cData *v, float *vx, float *vy, int dx, int pdx, int dy);
 extern "C" void advectParticles(GLuint vbo, cData * v, float* alpha, int dx, int dy, float dt);
 
 
 void simulateFluids(void)
 {
-	// simulate fluid
-	//advectVelocity(dvfield, (float *)vxfield, (float *)vyfield, DIM, RPADW, DIM, DT);
-	//diffuseProject(vxfield, vyfield, CPADW, DIM, DT, VIS);
-	//updateVelocity(dvfield, (float *)vxfield, (float *)vyfield, DIM, RPADW, DIM);
 	advectParticles(vbo, dvfield, dalphafield, SHORE_ARR, 1, DT);
 }
 
@@ -222,27 +214,6 @@ void keyboard(unsigned char key, int x, int y)
 #endif
 		break;
 
-	/*case 'r':
-		memset(hvfield, 0, sizeof(cData) * SHORE);
-		cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,
-			cudaMemcpyHostToDevice);
-
-		initParticles(particles, SHORE);
-
-		cudaGraphicsUnregisterResource(cuda_vbo_resource);
-
-		getLastCudaError("cudaGraphicsUnregisterBuffer failed");
-
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(cData) * SHORE_ARR,
-			particles, GL_DYNAMIC_DRAW_ARB);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsMapFlagsNone);
-
-		getLastCudaError("cudaGraphicsGLRegisterBuffer failed");
-		break;*/
-
 	default:
 		break;
 	}
@@ -257,25 +228,6 @@ void click(int button, int updown, int x, int y)
 
 void motion(int x, int y)
 {
-	// Convert motion coordinates to domain
-	//float fx = (lastx / (float)wWidth);
-	//float fy = (lasty / (float)wHeight);
-	//int nx = (int)(fx * DIM);
-	//int ny = (int)(fy * DIM);
-
-	//if (clicked && nx < DIM - FR && nx > FR - 1 && ny < DIM - FR && ny > FR - 1)
-	//{
-	//	int ddx = x - lastx;
-	//	int ddy = y - lasty;
-	//	fx = ddx / (float)wWidth;
-	//	fy = ddy / (float)wHeight;
-	//	int spy = ny - FR;
-	//	int spx = nx - FR;
-	//	//addForces(dvfield, DIM, DIM, spx, spy, FORCE * DT * fx, FORCE * DT * fy, FR);
-	//	lastx = x;
-	//	lasty = y;
-	//}
-
 	glutPostRedisplay();
 }
 
@@ -295,8 +247,6 @@ void reshape(int x, int y)
 void cleanup(void)
 {
 	cudaGraphicsUnregisterResource(cuda_vbo_resource);
-
-	deleteTexture();
 
 	// Free all host and device resources
 	free(hvfield);
@@ -412,8 +362,6 @@ int main(int argc, char** argv)
 	cudaMallocPitch((void**)&dffield, &tPitch, sizeof(cData) * SHORE, 1);
 	cudaMemcpy(dffield, hffield, sizeof(cData) * SHORE,
 		cudaMemcpyHostToDevice);
-
-	setupTexture(SHORE_ARR, 1);
 
 	// localization
 	particles = (cData*)malloc(sizeof(cData) * SHORE_ARR);
