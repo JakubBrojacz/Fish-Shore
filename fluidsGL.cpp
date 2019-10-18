@@ -67,6 +67,9 @@ cData* dvfield = NULL;
 static int wWidth = 512;
 static int wHeight = 512;
 
+float* halphafield = NULL;
+float* dalphafield = NULL;
+
 static int clicked = 0;
 static int fpsCount = 0;
 static int fpsLimit = 1;
@@ -97,7 +100,7 @@ void autoTest(char**);
 //extern "C" void advectVelocity(cData *v, float *vx, float *vy, int dx, int pdx, int dy, float dt);
 //extern "C" void diffuseProject(cData *vx, cData *vy, int dx, int dy, float dt, float visc);
 //extern "C" void updateVelocity(cData *v, float *vx, float *vy, int dx, int pdx, int dy);
-extern "C" void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt);
+extern "C" void advectParticles(GLuint vbo, cData * v, float* alpha, int dx, int dy, float dt);
 
 
 void simulateFluids(void)
@@ -106,7 +109,7 @@ void simulateFluids(void)
 	//advectVelocity(dvfield, (float *)vxfield, (float *)vyfield, DIM, RPADW, DIM, DT);
 	//diffuseProject(vxfield, vyfield, CPADW, DIM, DT, VIS);
 	//updateVelocity(dvfield, (float *)vxfield, (float *)vyfield, DIM, RPADW, DIM);
-	advectParticles(vbo, dvfield, SHORE_ARR, 1, DT);
+	advectParticles(vbo, dvfield, dalphafield, SHORE_ARR, 1, DT);
 }
 
 void display(void)
@@ -350,8 +353,10 @@ void cleanup(void)
 
 	// Free all host and device resources
 	free(hvfield);
+	free(halphafield);
 	free(particles);
 	cudaFree(dvfield);
+	cudaFree(dalphafield);
 	cudaFree(vxfield);
 	cudaFree(vyfield);
 	cufftDestroy(planr2c);
@@ -442,14 +447,24 @@ int main(int argc, char** argv)
 	sdkCreateTimer(&timer);
 	sdkResetTimer(&timer);
 
+	// alpha
+	halphafield = (float*)malloc(sizeof(float) * SHORE);
+	memset(halphafield, 0, sizeof(float)* SHORE);
+	for (int i = 0; i < SHORE; i++)
+		halphafield[i] = 2*3.14*i/SHORE;
+	cudaMallocPitch((void**)&dalphafield, &tPitch, sizeof(float) * SHORE, 1);
+	cudaMemcpy(dalphafield, halphafield, sizeof(float) * SHORE,
+		cudaMemcpyHostToDevice);
+
+	// velocity
 	hvfield = (cData*)malloc(sizeof(cData) * SHORE);
 	memset(hvfield, 0, sizeof(cData) * SHORE);
 	for (int i = 0; i < SHORE; i++)
-		hvfield[i].y = 0.01;
-
-	// Allocate and initialize device data
+	{
+		hvfield[i].y = -sin(halphafield[i]) * 0.01;
+		hvfield[i].x = -cos(halphafield[i]) * 0.01;
+	}
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
-
 	cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,
 		cudaMemcpyHostToDevice);
 

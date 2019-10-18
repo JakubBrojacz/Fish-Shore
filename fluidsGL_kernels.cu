@@ -16,7 +16,7 @@
 #include <cufft.h>          // CUDA FFT Libraries
 #include <helper_cuda.h>    // Helper functions for CUDA Error handling
 
-// OpenGL Graphics includes
+ // OpenGL Graphics includes
 #define HELPERGL_EXTERN_GL_FUNC_IMPLEMENTATION
 #include <helper_gl.h>
 
@@ -24,54 +24,57 @@
 // FluidsGL CUDA kernel definitions
 #include "fluidsGL_kernels.cuh"
 
+
+#define M_PI 3.14159265
+
 // Texture object for reading velocity field
 cudaTextureObject_t     texObj;
-static cudaArray *array = NULL;
+static cudaArray* array = NULL;
 
 // Particle data
 extern GLuint vbo;                 // OpenGL vertex buffer object
-extern struct cudaGraphicsResource *cuda_vbo_resource; // handles OpenGL-CUDA exchange
+extern struct cudaGraphicsResource* cuda_vbo_resource; // handles OpenGL-CUDA exchange
 
 // Texture pitch
 extern size_t tPitch;
 extern cufftHandle planr2c;
 extern cufftHandle planc2r;
-cData *vxfield = NULL;
-cData *vyfield = NULL;
+cData* vxfield = NULL;
+cData* vyfield = NULL;
 
 void setupTexture(int x, int y)
 {
-    cudaChannelFormatDesc desc = cudaCreateChannelDesc<float2>();
+	cudaChannelFormatDesc desc = cudaCreateChannelDesc<float2>();
 
-    cudaMallocArray(&array, &desc, y, x);
-    getLastCudaError("cudaMalloc failed");
+	cudaMallocArray(&array, &desc, y, x);
+	getLastCudaError("cudaMalloc failed");
 
-    cudaResourceDesc            texRes;
-    memset(&texRes,0,sizeof(cudaResourceDesc));
+	cudaResourceDesc            texRes;
+	memset(&texRes, 0, sizeof(cudaResourceDesc));
 
-    texRes.resType            = cudaResourceTypeArray;
-    texRes.res.array.array    = array;
+	texRes.resType = cudaResourceTypeArray;
+	texRes.res.array.array = array;
 
-    cudaTextureDesc             texDescr;
-    memset(&texDescr,0,sizeof(cudaTextureDesc));
+	cudaTextureDesc             texDescr;
+	memset(&texDescr, 0, sizeof(cudaTextureDesc));
 
-    texDescr.normalizedCoords = false;
-    texDescr.filterMode       = cudaFilterModeLinear;
-    texDescr.addressMode[0] = cudaAddressModeWrap;
-    texDescr.readMode = cudaReadModeElementType;
+	texDescr.normalizedCoords = false;
+	texDescr.filterMode = cudaFilterModeLinear;
+	texDescr.addressMode[0] = cudaAddressModeWrap;
+	texDescr.readMode = cudaReadModeElementType;
 
-    checkCudaErrors(cudaCreateTextureObject(&texObj, &texRes, &texDescr, NULL));
+	checkCudaErrors(cudaCreateTextureObject(&texObj, &texRes, &texDescr, NULL));
 }
 
-void updateTexture(cData *data, size_t wib, size_t h, size_t pitch)
+void updateTexture(cData* data, size_t wib, size_t h, size_t pitch)
 {
-    checkCudaErrors(cudaMemcpy2DToArray(array, 0, 0, data, pitch, wib, h, cudaMemcpyDeviceToDevice));
+	checkCudaErrors(cudaMemcpy2DToArray(array, 0, 0, data, pitch, wib, h, cudaMemcpyDeviceToDevice));
 }
 
 void deleteTexture(void)
 {
-    checkCudaErrors(cudaDestroyTextureObject(texObj));
-    checkCudaErrors(cudaFreeArray(array));
+	checkCudaErrors(cudaDestroyTextureObject(texObj));
+	checkCudaErrors(cudaFreeArray(array));
 }
 
 // Note that these kernels are designed to work with arbitrary
@@ -82,6 +85,49 @@ void deleteTexture(void)
 // multiple elements in the Y direction, while there is a one-to-one
 // mapping between threads in X and the tile size in X.
 // Nolan Goodnight 9/22/06
+
+__device__ inline float getSquaredDistance(cData c1, cData c2)
+{
+	return (c1.x - c2.x) * (c1.x - c2.x) + (c1.y - c2.y) * (c1.y - c2.y);
+}
+
+
+
+
+__global__ void
+cohesion_k(cData* part, cData* v, float* alpha, int dx, int dy,
+	float dt, int lb, size_t pitch)
+{
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+	int p;
+
+	cData pterm;
+
+	if (gtidx < dx && gtidy < dy)
+	{
+		int fj = gtidx + gtidy * dx;
+		pterm = part[6 * fj];
+
+		int count = 0;
+		float midx = 0, midy = 0;
+		for (int i = 0; i < SHORE_ARR; i += 6)
+			if (i != 6 * fj && getSquaredDistance(part[i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
+			{
+				count++;
+				midx += part[i].x;
+				midy += part[i].y;
+			}
+		midx /= count;
+		midy /= count;
+		cData midpoint = cData();
+		midpoint.x = midx;
+		midpoint.y = midy;
+
+		float alpha1 = acos((midx - pterm.x) / sqrt(getSquaredDistance(midpoint, pterm)));
+		alpha[fj] += (alpha1 > alpha[fj]) * 0.1;
+	}
+}
 
 // This method adds constant force vectors to the velocity field
 // stored in 'v' according to v(x,t+1) = v(x,t) + dt * f.
@@ -253,56 +299,53 @@ void deleteTexture(void)
 // according to the velocity field and time step. That is, for each
 // particle: p(t+1) = p(t) + dt * v(p(t)).
 __global__ void
-advectParticles_k(cData *part, cData *v, int dx, int dy,
-                  float dt, int lb, size_t pitch)
+advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
+	float dt, int lb, size_t pitch)
 {
 
-    int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-    int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-    int p;
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+	int p;
 
-    // gtidx is the domain location in x for this thread
-    cData pterm, vterm;
+	// gtidx is the domain location in x for this thread
+	cData pterm, vterm;
 
-    if (gtidx < dx)
-    {
-        for (p = 0; p < lb; p++)
-        {
-            // fi is the domain location in y for this thread
-            int fi = gtidy + p;
+	if (gtidx < dx)
+	{
+		if (gtidy < dy)
+		{
+			int fj = gtidx + gtidy * dx;
+			pterm = part[6 * fj];
 
-            if (fi < dy)
-            {
-                int fj = fi * dx + gtidx;
-                pterm = part[6*fj];
+			
+			v[fj].y = -sin(alpha[fj]) * 0.01;
+			v[fj].x = -cos(alpha[fj]) * 0.01;
 
-                int xvi = ((int)(pterm.x * dx));
-                int yvi = ((int)(pterm.y * dy));
-                vterm = *((cData *)((char *)v + yvi * pitch) + xvi);
 
-                pterm.x += dt * vterm.x;
-                pterm.x = pterm.x - (int)pterm.x;
-                pterm.x += 1.f;
-                pterm.x = pterm.x - (int)pterm.x;
-                pterm.y += dt * vterm.y;
-                pterm.y = pterm.y - (int)pterm.y;
-                pterm.y += 1.f;
-                pterm.y = pterm.y - (int)pterm.y;
+			vterm = v[fj];
 
-                part[6*fj] = pterm;
-				part[6 * fj + 1].x = pterm.x + 0.02;
-				part[6 * fj + 1].y = pterm.y + 0.02;
-				part[6 * fj + 2].x = pterm.x;
-				part[6 * fj + 2].y = pterm.y;
-				part[6 * fj + 3].x = pterm.x + 0.01;
-				part[6 * fj + 3].y = pterm.y;
-				part[6 * fj + 4].x = pterm.x;
-				part[6 * fj + 4].y = pterm.y;
-				part[6 * fj + 5].x = pterm.x;
-				part[6 * fj + 5].y = pterm.y + 0.01;
-            }
-        } // If this thread is inside the domain in Y
-    } // If this thread is inside the domain in X
+			pterm.x += dt * vterm.x;
+			pterm.x = pterm.x - (int)pterm.x;
+			pterm.x += 1.f;
+			pterm.x = pterm.x - (int)pterm.x;
+			pterm.y += dt * vterm.y;
+			pterm.y = pterm.y - (int)pterm.y;
+			pterm.y += 1.f;
+			pterm.y = pterm.y - (int)pterm.y;
+
+			part[6 * fj] = pterm;
+			part[6 * fj + 1].x = pterm.x + cos(alpha[fj]) * 0.02;
+			part[6 * fj + 1].y = pterm.y + sin(alpha[fj]) * 0.02;
+			part[6 * fj + 2].x = pterm.x;
+			part[6 * fj + 2].y = pterm.y;
+			part[6 * fj + 3].x = pterm.x + cos(alpha[fj] + M_PI / 6) * 0.01;
+			part[6 * fj + 3].y = pterm.y + sin(alpha[fj] + M_PI / 6) * 0.01;
+			part[6 * fj + 4].x = pterm.x;
+			part[6 * fj + 4].y = pterm.y;
+			part[6 * fj + 5].x = pterm.x + cos(alpha[fj] - M_PI / 6) * 0.01;
+			part[6 * fj + 5].y = pterm.y + sin(alpha[fj] - M_PI / 6) * 0.01;
+		} // If this thread is inside the domain in Y
+	} // If this thread is inside the domain in X
 }
 //
 //
@@ -360,23 +403,24 @@ advectParticles_k(cData *part, cData *v, int dx, int dy,
 //}
 
 extern "C"
-void advectParticles(GLuint vbo, cData *v, int dx, int dy, float dt)
+void advectParticles(GLuint vbo, cData * v, float* alpha, int dx, int dy, float dt)
 {
-    dim3 grid(1, 1);
-    dim3 tids(SHORE, 1);
+	dim3 grid(1, 1);
+	dim3 tids(SHORE, 1);
 
-    cData *p;
-    cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
-    getLastCudaError("cudaGraphicsMapResources failed");
+	cData* p;
+	cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
+	getLastCudaError("cudaGraphicsMapResources failed");
 
-    size_t num_bytes;
-    cudaGraphicsResourceGetMappedPointer((void **)&p, &num_bytes,
-                                         cuda_vbo_resource);
-    getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
+	size_t num_bytes;
+	cudaGraphicsResourceGetMappedPointer((void**)&p, &num_bytes,
+		cuda_vbo_resource);
+	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
-    advectParticles_k<<<grid, tids>>>(p, v, SHORE, 1, dt, 1, tPitch);
-    //getLastCudaError("advectParticles_k failed.");
+	cohesion_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, tPitch);
+	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, tPitch);
+	//getLastCudaError("advectParticles_k failed.");
 
-    cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
-    getLastCudaError("cudaGraphicsUnmapResources failed");
+	cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
+	getLastCudaError("cudaGraphicsUnmapResources failed");
 }

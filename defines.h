@@ -12,13 +12,14 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#define SHORE 10
+#define SHORE 100
 #define SHORE_ARR (SHORE * 6)
 
 #define DT     0.09f     // Delta T for interative solver
 #define VIS    0.0025f   // Viscosity constant
 #define FORCE (5.8f*DIM) // Force scale factor 
 #define FR     4         // Force update radius
+#define SIGN_RADIUS	0.01
 
 #define TILEX 64 // Tile width
 #define TILEY 64 // Tile height

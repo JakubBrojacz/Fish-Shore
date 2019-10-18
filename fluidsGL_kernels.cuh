@@ -20,6 +20,9 @@ void setupTexture(int x, int y);
 void updateTexture(cData *data, size_t w, size_t h, size_t pitch);
 void deleteTexture(void);
 
+
+__device__ inline float getSquaredDistance(cData c1, cData c2);
+
 // This method adds constant force vectors to the velocity field
 // stored in 'v' according to v(x,t+1) = v(x,t) + dt * f.
 //__global__ void
@@ -55,9 +58,9 @@ void deleteTexture(void);
 //// This method updates the particles by moving particle positions
 //// according to the velocity field and time step. That is, for each
 //// particle: p(t+1) = p(t) + dt * v(p(t)).
-//__global__ void
-//advectParticles_k(cData *part, cData *v, int dx, int dy,
-//                  float dt, int lb, size_t pitch);
+__global__ void
+advectParticles_k(cData *part, cData *v, int dx, int dy,
+                  float dt, int lb, size_t pitch);
 
 #endif
 
