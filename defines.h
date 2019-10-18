@@ -19,7 +19,14 @@
 #define VIS    0.0025f   // Viscosity constant
 #define FORCE (5.8f*DIM) // Force scale factor 
 #define FR     4         // Force update radius
+
 #define SIGN_RADIUS	0.01
+#define MAX_SPEED 1
+#define MAX_FORCE 0.1
+
+#define SEP_MULTI 1
+#define ALI_MULTI 1
+#define COH_MULTI 1
 
 #define TILEX 64 // Tile width
 #define TILEY 64 // Tile height

@@ -70,6 +70,9 @@ static int wHeight = 512;
 float* halphafield = NULL;
 float* dalphafield = NULL;
 
+cData* hffield = NULL;
+cData* dffield = NULL;
+
 static int clicked = 0;
 static int fpsCount = 0;
 static int fpsLimit = 1;
@@ -93,8 +96,6 @@ bool g_bExitESC = false;
 
 // CheckFBO/BackBuffer class objects
 CheckRender* g_CheckRender = NULL;
-
-void autoTest(char**);
 
 //extern "C" void addForces(cData *v, int dx, int dy, int spx, int spy, float fx, float fy, int r);
 //extern "C" void advectVelocity(cData *v, float *vx, float *vy, int dx, int pdx, int dy, float dt);
@@ -162,60 +163,6 @@ void display(void)
 	}
 
 	glutPostRedisplay();
-}
-
-void autoTest(char** argv)
-{
-	//CFrameBufferObject *fbo = new CFrameBufferObject(wWidth, wHeight, 4, false, GL_TEXTURE_2D);
-	//g_CheckRender = new CheckFBO(wWidth, wHeight, 4, fbo);
-	//g_CheckRender->setPixelFormat(GL_RGBA);
-	//g_CheckRender->setExecPath(argv[0]);
-	//g_CheckRender->EnableQAReadback(true);
-
-	//fbo->bindRenderPath();
-
-	//reshape(wWidth, wHeight);
-
-	//for (int count=0; count<g_iFrameToCompare; count++)
-	//{
-	//    simulateFluids();
-
-	//    // add in a little force so the automated testing is interesting.
-	//    if (ref_file)
-	//    {
-	//        int x = wWidth/(count+1);
-	//        int y = wHeight/(count+1);
-	//        float fx = (x / (float)wWidth);
-	//        float fy = (y / (float)wHeight);
-	//        int nx = (int)(fx * DIM);
-	//        int ny = (int)(fy * DIM);
-
-	//        int ddx = 35;
-	//        int ddy = 35;
-	//        fx = ddx / (float)wWidth;
-	//        fy = ddy / (float)wHeight;
-	//        int spy = ny-FR;
-	//        int spx = nx-FR;
-
-	//        addForces(dvfield, DIM, DIM, spx, spy, FORCE * DT * fx, FORCE * DT * fy, FR);
-	//        lastx = x;
-	//        lasty = y;
-	//    }
-	//}
-
-	//display();
-
-	//fbo->unbindRenderPath();
-
-	//// compare to official reference image, printing PASS or FAIL.
-	//printf("> (Frame %d) Readback BackBuffer\n", 100);
-	//g_CheckRender->readback(wWidth, wHeight);
-	//g_CheckRender->savePPM("fluidsGL.ppm", true, NULL);
-
-	//if (!g_CheckRender->PPMvsPPM("fluidsGL.ppm", ref_file, MAX_EPSILON_ERROR, 0.25f))
-	//{
-	//    g_TotalErrors++;
-	//}
 }
 
 // very simple von neumann middle-square prng.  can't use rand() in -qatest
@@ -353,9 +300,11 @@ void cleanup(void)
 
 	// Free all host and device resources
 	free(hvfield);
+	free(hffield);
 	free(halphafield);
 	free(particles);
 	cudaFree(dvfield);
+	cudaFree(dffield);
 	cudaFree(dalphafield);
 	cudaFree(vxfield);
 	cudaFree(vyfield);
@@ -406,16 +355,6 @@ int main(int argc, char** argv)
 	int devID;
 	cudaDeviceProp deviceProps;
 
-#if defined(__linux__)
-	char* Xstatus = getenv("DISPLAY");
-	if (Xstatus == NULL)
-	{
-		printf("Waiving execution as X server is not running\n");
-		exit(EXIT_WAIVED);
-	}
-	setenv("DISPLAY", ":0", 0);
-#endif
-
 	printf("%s Starting...\n\n", sSDKname);
 
 	printf("NOTE: The CUDA Samples are not meant for performance measurements. Results may vary when GPU Boost is enabled.\n\n");
@@ -434,12 +373,6 @@ int main(int argc, char** argv)
 	checkCudaErrors(cudaGetDeviceProperties(&deviceProps, devID));
 	printf("CUDA device [%s] has %d Multi-Processors\n",
 		deviceProps.name, deviceProps.multiProcessorCount);
-
-	// automated build testing harness
-	if (checkCmdLineFlag(argc, (const char**)argv, "file"))
-	{
-		getCmdLineArgumentString(argc, (const char**)argv, "file", &ref_file);
-	}
 
 	// Allocate and initialize host data
 	GLint bsize;
@@ -461,16 +394,28 @@ int main(int argc, char** argv)
 	memset(hvfield, 0, sizeof(cData) * SHORE);
 	for (int i = 0; i < SHORE; i++)
 	{
-		hvfield[i].y = -sin(halphafield[i]) * 0.01;
-		hvfield[i].x = -cos(halphafield[i]) * 0.01;
+		hvfield[i].x = cos(halphafield[i]) * 0.01;
+		hvfield[i].y = sin(halphafield[i]) * 0.01;
 	}
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
 	cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,
 		cudaMemcpyHostToDevice);
 
+	///force
+	hffield = (cData*)malloc(sizeof(cData) * SHORE);
+	memset(hffield, 0, sizeof(cData) * SHORE);
+	for (int i = 0; i < SHORE; i++)
+	{
+		hffield[i].y = 0;
+		hffield[i].x = 0;
+	}
+	cudaMallocPitch((void**)&dffield, &tPitch, sizeof(cData) * SHORE, 1);
+	cudaMemcpy(dffield, hffield, sizeof(cData) * SHORE,
+		cudaMemcpyHostToDevice);
+
 	setupTexture(SHORE_ARR, 1);
 
-	// Create particle array
+	// localization
 	particles = (cData*)malloc(sizeof(cData) * SHORE_ARR);
 	memset(particles, 0, sizeof(cData) * SHORE_ARR);
 
@@ -495,29 +440,8 @@ int main(int argc, char** argv)
 	checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsMapFlagsNone));
 	getLastCudaError("cudaGraphicsGLRegisterBuffer failed");
 
-	if (ref_file)
-	{
-		autoTest(argv);
-		cleanup();
-
-		printf("[fluidsGL] - Test Results: %d Failures\n", g_TotalErrors);
-		exit(g_TotalErrors == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
-
-}
-	else
-	{
-#if defined (__APPLE__) || defined(MACOSX)
-		atexit(cleanup);
-#else
-		glutCloseFunc(cleanup);
-#endif
-		glutMainLoop();
-	}
-
-	if (!ref_file)
-	{
-		exit(EXIT_SUCCESS);
-	}
+	glutCloseFunc(cleanup);
+	glutMainLoop();
 
 	return 0;
 

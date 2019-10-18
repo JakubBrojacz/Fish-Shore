@@ -15,7 +15,6 @@
 typedef float2 cData;
 
 void setupTexture(int x, int y);
-void updateTexture(cData *data, size_t w, size_t h, size_t pitch);
 void deleteTexture(void);
 
 // This method adds constant force vectors to the velocity field

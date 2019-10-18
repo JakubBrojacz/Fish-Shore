@@ -16,7 +16,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{997E0757-EA74-4A4E-A0FC-47D8C8831A15}</ProjectGuid>
     <RootNamespace>fluidsGL_vs2019</RootNamespace>
-    <ProjectName>Fishes</ProjectName>
+    <ProjectName>fluidsGL</ProjectName>
     <CudaToolkitCustomDir />
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
