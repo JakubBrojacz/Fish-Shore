@@ -21,7 +21,10 @@ __device__ inline float getSquaredDistance(cData c1, cData c2);
 
 __global__ void
 advectParticles_k(cData *part, cData *v, int dx, int dy,
-                  float dt, int lb, size_t pitch);
+                  float dt, int lb);
+__global__ void
+applyForces_k(cData* v, cData* f, int dx, int dy,
+	float dt, int lb);
 
 #endif
 

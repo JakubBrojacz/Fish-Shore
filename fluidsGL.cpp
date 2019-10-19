@@ -97,12 +97,12 @@ bool g_bExitESC = false;
 // CheckFBO/BackBuffer class objects
 CheckRender* g_CheckRender = NULL;
 
-extern "C" void advectParticles(GLuint vbo, cData * v, float* alpha, int dx, int dy, float dt);
+extern "C" void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int dy, float dt);
 
 
 void simulateFluids(void)
 {
-	advectParticles(vbo, dvfield, dalphafield, SHORE_ARR, 1, DT);
+	advectParticles(vbo, dvfield, dffield, dalphafield, SHORE_ARR, 1, DT);
 }
 
 void display(void)

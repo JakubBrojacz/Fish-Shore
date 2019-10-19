@@ -46,7 +46,6 @@ cohesion_k(cData* part, cData* v, float* alpha, int dx, int dy,
 {
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
 	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-	int p;
 
 	cData pterm;
 
@@ -75,17 +74,50 @@ cohesion_k(cData* part, cData* v, float* alpha, int dx, int dy,
 	}
 }
 
+
+__global__ void
+applyForces_k(cData* v, cData* f, int dx, int dy,
+	float dt, int lb)
+{
+
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+
+	// gtidx is the domain location in x for this thread
+	cData vterm, fterm;
+
+	if (gtidx < dx)
+	{
+		if (gtidy < dy)
+		{
+			int fj = gtidx + gtidy * dx;
+			
+			vterm = v[fj];
+			fterm = f[fj];
+
+			vterm.x += dt * fterm.x;
+			if(vterm.x > MAX_SPEED)
+				vterm.x = MAX_SPEED;
+			vterm.y += dt * fterm.y;
+			if (vterm.y > MAX_SPEED)
+				vterm.y = MAX_SPEED;
+
+			v[fj] = vterm;
+		} // If this thread is inside the domain in Y
+	} // If this thread is inside the domain in X
+}
+
+
 // This method updates the particles by moving particle positions
 // according to the velocity field and time step. That is, for each
 // particle: p(t+1) = p(t) + dt * v(p(t)).
 __global__ void
 advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
-	float dt, int lb, size_t pitch)
+	float dt, int lb)
 {
 
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
 	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-	int p;
 
 	// gtidx is the domain location in x for this thread
 	cData pterm, vterm;
@@ -98,8 +130,8 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			pterm = part[6 * fj];
 
 			
-			v[fj].y = -sin(alpha[fj]) * 0.01;
-			v[fj].x = -cos(alpha[fj]) * 0.01;
+			/*v[fj].y = -sin(alpha[fj]) * 0.01;
+			v[fj].x = -cos(alpha[fj]) * 0.01;*/
 
 
 			vterm = v[fj];
@@ -129,7 +161,7 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 }
 
 extern "C"
-void advectParticles(GLuint vbo, cData * v, float* alpha, int dx, int dy, float dt)
+void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int dy, float dt)
 {
 	dim3 grid(1, 1);
 	dim3 tids(SHORE, 1);
@@ -144,9 +176,9 @@ void advectParticles(GLuint vbo, cData * v, float* alpha, int dx, int dy, float 
 	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
 	//cohesion_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, tPitch);
-	//applyForces_k <<<grid, tids>>> (v, f, SHORE, 1, dt, 1, tPitch)
-	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, 0);
-	//getLastCudaError("advectParticles_k failed.");
+	applyForces_k << <grid, tids >> > (v, f, SHORE, 1, dt, 1);
+	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1);
+	getLastCudaError("advectParticles_k failed.");
 
 	cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
 	getLastCudaError("cudaGraphicsUnmapResources failed");
