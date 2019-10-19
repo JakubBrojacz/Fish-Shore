@@ -41,8 +41,8 @@ __device__ inline float getSquaredDistance(cData c1, cData c2)
 
 
 __global__ void
-cohesion_k(cData* part, cData* v, float* alpha, int dx, int dy,
-	float dt, int lb, size_t pitch)
+cohesion_k(cData* part, cData* v, cData* f, int dx, int dy,
+	float dt, int lb)
 {
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
 	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
@@ -56,21 +56,27 @@ cohesion_k(cData* part, cData* v, float* alpha, int dx, int dy,
 
 		int count = 0;
 		float midx = 0, midy = 0;
-		for (int i = 0; i < SHORE_ARR; i += 6)
-			if (i != 6 * fj && getSquaredDistance(part[i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
+		for (int i = 0; i < SHORE; i++)
+			if (i != fj && getSquaredDistance(part[6*i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
 			{
 				count++;
 				midx += part[i].x;
 				midy += part[i].y;
 			}
-		midx /= count;
-		midy /= count;
-		cData midpoint = cData();
-		midpoint.x = midx;
-		midpoint.y = midy;
+		if (count > 0)
+		{
+			midx /= count;
+			midy /= count;
+			
+			float des_x = midx - pterm.x;
+			float des_y = midy - pterm.y;
+			
+			//normalize
+			//todo
 
-		float alpha1 = acos((midx - pterm.x) / sqrt(getSquaredDistance(midpoint, pterm)));
-		alpha[fj] += (alpha1 > alpha[fj]) * 0.1;
+			f[fj].x += (des_x - v[fj].x)*0.001;
+			f[fj].y += (des_y - v[fj].y)*0.001;
+		}
 	}
 }
 
@@ -175,7 +181,7 @@ void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int
 		cuda_vbo_resource);
 	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
-	//cohesion_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1, tPitch);
+	cohesion_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
 	applyForces_k << <grid, tids >> > (v, f, SHORE, 1, dt, 1);
 	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1);
 	getLastCudaError("advectParticles_k failed.");

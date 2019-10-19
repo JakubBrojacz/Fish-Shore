@@ -20,7 +20,7 @@
 #define FORCE (5.8f*DIM) // Force scale factor 
 #define FR     4         // Force update radius
 
-#define SIGN_RADIUS	0.01
+#define SIGN_RADIUS	0.001
 #define MAX_SPEED 1
 #define MAX_FORCE 0.1
 
