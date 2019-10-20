@@ -20,11 +20,12 @@
 #define FORCE (5.8f*DIM) // Force scale factor 
 #define FR     4         // Force update radius
 
-#define SIGN_RADIUS	0.001
-#define MAX_SPEED 1
-#define MAX_FORCE 0.1
+#define SIGN_RADIUS	0.1
+#define SEPARATION_RADIUS 0.05
+#define MAX_SPEED 0.03
+#define MAX_FORCE 0.001
 
-#define SEP_MULTI 1
+#define SEP_MULTI 1.5
 #define ALI_MULTI 1
 #define COH_MULTI 1
 

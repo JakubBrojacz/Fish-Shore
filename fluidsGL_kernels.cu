@@ -37,7 +37,42 @@ __device__ inline float getSquaredDistance(cData c1, cData c2)
 	return (c1.x - c2.x) * (c1.x - c2.x) + (c1.y - c2.y) * (c1.y - c2.y);
 }
 
+__device__ cData setMagnitude(cData c, float m)
+{
+	float l = (c.x * c.x) + (c.y * c.y);
+	if (l > 0.0001)
+	{
+		c.x = c.x * (m * m) / l;
+		c.y = c.y * (m * m) / l;
+	}
+	return c;
+}
 
+__device__ cData limit(cData c, float m)
+{
+	float l = (c.x * c.x) + (c.y * c.y);
+	if (l > m * m)
+	{
+		return setMagnitude(c, m);
+	}
+	return c;
+}
+
+
+__global__ void
+prepare_k(cData* f, int dx, int dy,
+	float dt, int lb)
+{
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+
+	if (gtidx < dx && gtidy < dy)
+	{
+		int fj = gtidx + gtidy * dx;
+		f[fj].x = 0;
+		f[fj].y = 0;
+	}
+}
 
 
 __global__ void
@@ -57,7 +92,7 @@ cohesion_k(cData* part, cData* v, cData* f, int dx, int dy,
 		int count = 0;
 		float midx = 0, midy = 0;
 		for (int i = 0; i < SHORE; i++)
-			if (i != fj && getSquaredDistance(part[6*i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
+			if (i != fj && getSquaredDistance(part[6 * i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
 			{
 				count++;
 				midx += part[i].x;
@@ -67,15 +102,121 @@ cohesion_k(cData* part, cData* v, cData* f, int dx, int dy,
 		{
 			midx /= count;
 			midy /= count;
-			
+
 			float des_x = midx - pterm.x;
 			float des_y = midy - pterm.y;
-			
-			//normalize
-			//todo
 
-			f[fj].x += (des_x - v[fj].x)*0.001;
-			f[fj].y += (des_y - v[fj].y)*0.001;
+			cData des = cData();
+			des.x = des_x;
+			des.y = des_y;
+			des = setMagnitude(des, MAX_SPEED);
+
+			cData steer = cData();
+			steer.x = (des_x - v[fj].x);
+			steer.y = (des_y - v[fj].y);
+			steer = limit(steer, MAX_FORCE);
+
+			f[fj].x += steer.x * COH_MULTI;
+			f[fj].y += steer.y * COH_MULTI;
+		}
+	}
+}
+
+__global__ void
+separation_k(cData* part, cData* v, cData* f, int dx, int dy,
+	float dt, int lb)
+{
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+
+	cData pterm;
+
+	if (gtidx < dx && gtidy < dy)
+	{
+		int fj = gtidx + gtidy * dx;
+		pterm = part[6 * fj];
+
+		int count = 0;
+		float midx = 0, midy = 0;
+		for (int i = 0; i < SHORE; i++)
+			if (i != fj && getSquaredDistance(part[6 * i], pterm) < SEPARATION_RADIUS * SEPARATION_RADIUS)
+			{
+				count++;
+				cData tmp = cData();
+				tmp.x = pterm.x - part[i].x;
+				tmp.y = pterm.y - part[i].y;
+				tmp = setMagnitude(tmp, 1 / sqrt(getSquaredDistance(part[i], pterm)));
+				midx += tmp.x;
+				midy += tmp.y;
+			}
+		if (count > 0)
+		{
+			midx /= count;
+			midy /= count;
+
+			float des_x = midx - pterm.x;
+			float des_y = midy - pterm.y;
+
+			cData des = cData();
+			des.x = des_x;
+			des.y = des_y;
+			des = setMagnitude(des, MAX_SPEED);
+
+			cData steer = cData();
+			steer.x = (des_x - v[fj].x);
+			steer.y = (des_y - v[fj].y);
+			steer = limit(steer, MAX_FORCE);
+
+			f[fj].x += steer.x * SEP_MULTI;
+			f[fj].y += steer.y * SEP_MULTI;
+		}
+	}
+}
+
+
+__global__ void
+alignment_k(cData* part, cData* v, cData* f, int dx, int dy,
+	float dt, int lb)
+{
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+
+	cData pterm;
+
+	if (gtidx < dx && gtidy < dy)
+	{
+		int fj = gtidx + gtidy * dx;
+		pterm = part[6 * fj];
+
+		int count = 0;
+		float midx = 0, midy = 0;
+		for (int i = 0; i < SHORE; i++)
+			if (i != fj && getSquaredDistance(part[6 * i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
+			{
+				count++;
+				midx += v[i].x;
+				midy += v[i].y;
+			}
+		if (count > 0)
+		{
+			midx /= count;
+			midy /= count;
+
+			float des_x = midx - pterm.x;
+			float des_y = midy - pterm.y;
+
+			cData des = cData();
+			des.x = des_x;
+			des.y = des_y;
+			des = setMagnitude(des, MAX_SPEED);
+
+			cData steer = cData();
+			steer.x = (des_x - v[fj].x);
+			steer.y = (des_y - v[fj].y);
+			steer = limit(steer, MAX_FORCE);
+
+			f[fj].x += steer.x * ALI_MULTI;
+			f[fj].y += steer.y * ALI_MULTI;
 		}
 	}
 }
@@ -97,16 +238,13 @@ applyForces_k(cData* v, cData* f, int dx, int dy,
 		if (gtidy < dy)
 		{
 			int fj = gtidx + gtidy * dx;
-			
+
 			vterm = v[fj];
 			fterm = f[fj];
 
 			vterm.x += dt * fterm.x;
-			if(vterm.x > MAX_SPEED)
-				vterm.x = MAX_SPEED;
 			vterm.y += dt * fterm.y;
-			if (vterm.y > MAX_SPEED)
-				vterm.y = MAX_SPEED;
+			vterm = limit(vterm, MAX_SPEED);
 
 			v[fj] = vterm;
 		} // If this thread is inside the domain in Y
@@ -135,7 +273,7 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			int fj = gtidx + gtidy * dx;
 			pterm = part[6 * fj];
 
-			
+
 			/*v[fj].y = -sin(alpha[fj]) * 0.01;
 			v[fj].x = -cos(alpha[fj]) * 0.01;*/
 
@@ -150,6 +288,8 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			pterm.y = pterm.y - (int)pterm.y;
 			pterm.y += 1.f;
 			pterm.y = pterm.y - (int)pterm.y;
+
+			//alpha[fj] = 
 
 			part[6 * fj] = pterm;
 			part[6 * fj + 1].x = pterm.x + cos(alpha[fj]) * 0.02;
@@ -181,7 +321,10 @@ void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int
 		cuda_vbo_resource);
 	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
+	prepare_k << < grid, tids >> > (f, SHORE, 1, dt, 1);
 	cohesion_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
+	separation_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
+	alignment_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
 	applyForces_k << <grid, tids >> > (v, f, SHORE, 1, dt, 1);
 	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1);
 	getLastCudaError("advectParticles_k failed.");
