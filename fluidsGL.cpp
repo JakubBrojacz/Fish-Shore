@@ -346,8 +346,8 @@ int main(int argc, char** argv)
 	{
 		/*hvfield[i].x = cos(halphafield[i]) * MAX_SPEED;
 		hvfield[i].y = sin(halphafield[i]) * MAX_SPEED;*/
-		hvfield[i].x = 0;
-		hvfield[i].y = 0;
+		hvfield[i].x = -(myrand()-0.5) / 100;
+		hvfield[i].y = -(myrand()-0.5) / 100;
 	}
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
 	cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,

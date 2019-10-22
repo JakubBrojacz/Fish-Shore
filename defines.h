@@ -12,7 +12,7 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#define SHORE 100
+#define SHORE 50
 #define SHORE_ARR (SHORE * 6)
 
 #define DT     0.09f     // Delta T for interative solver
@@ -20,14 +20,17 @@
 #define FORCE (5.8f*DIM) // Force scale factor 
 #define FR     4         // Force update radius
 
-#define SIGN_RADIUS	0.1
-#define SEPARATION_RADIUS 0.05
-#define MAX_SPEED 0.03
-#define MAX_FORCE 0.001
+#define SIGN_RADIUS	0.08
+#define SEPARATION_RADIUS 0.08
+#define OBSTACLES_RADIUS 0.05
 
-#define SEP_MULTI 1.5
+#define MAX_SPEED 0.01
+#define MAX_FORCE 0.0015
+
+#define SEP_MULTI 1
 #define ALI_MULTI 1
 #define COH_MULTI 1
+#define OBS_MULTI 2
 
 #define TILEX 64 // Tile width
 #define TILEY 64 // Tile height

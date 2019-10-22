@@ -51,7 +51,7 @@ __device__ cData setMagnitude(cData c, float m)
 __device__ cData limit(cData c, float m)
 {
 	float l = (c.x * c.x) + (c.y * c.y);
-	if (l > m * m)
+	if (l > m* m)
 	{
 		return setMagnitude(c, m);
 	}
@@ -112,8 +112,10 @@ cohesion_k(cData* part, cData* v, cData* f, int dx, int dy,
 			des = setMagnitude(des, MAX_SPEED);
 
 			cData steer = cData();
-			steer.x = (des_x - v[fj].x);
-			steer.y = (des_y - v[fj].y);
+			/*steer.x = (des_x - v[fj].x);
+			steer.y = (des_y - v[fj].y);*/
+			steer.x = (des_x);
+			steer.y = (des_y);
 			steer = limit(steer, MAX_FORCE);
 
 			f[fj].x += steer.x * COH_MULTI;
@@ -143,9 +145,9 @@ separation_k(cData* part, cData* v, cData* f, int dx, int dy,
 			{
 				count++;
 				cData tmp = cData();
-				tmp.x = pterm.x - part[i].x;
-				tmp.y = pterm.y - part[i].y;
-				tmp = setMagnitude(tmp, 1 / sqrt(getSquaredDistance(part[i], pterm)));
+				tmp.x = pterm.x - part[6 * i].x;
+				tmp.y = pterm.y - part[6 * i].y;
+				tmp = setMagnitude(tmp, 1 / sqrt(getSquaredDistance(part[6 * i], pterm)));
 				midx += tmp.x;
 				midy += tmp.y;
 			}
@@ -154,18 +156,12 @@ separation_k(cData* part, cData* v, cData* f, int dx, int dy,
 			midx /= count;
 			midy /= count;
 
-			float des_x = midx - pterm.x;
-			float des_y = midy - pterm.y;
-
-			cData des = cData();
-			des.x = des_x;
-			des.y = des_y;
-			des = setMagnitude(des, MAX_SPEED);
-
 			cData steer = cData();
-			steer.x = (des_x - v[fj].x);
-			steer.y = (des_y - v[fj].y);
-			steer = limit(steer, MAX_FORCE);
+			/*steer.x = (des_x - v[fj].x);
+			steer.y = (des_y - v[fj].y);*/
+			steer.x = (midx);
+			steer.y = (midy);
+			steer = setMagnitude(steer, MAX_FORCE);
 
 			f[fj].x += steer.x * SEP_MULTI;
 			f[fj].y += steer.y * SEP_MULTI;
@@ -202,8 +198,8 @@ alignment_k(cData* part, cData* v, cData* f, int dx, int dy,
 			midx /= count;
 			midy /= count;
 
-			float des_x = midx - pterm.x;
-			float des_y = midy - pterm.y;
+			float des_x = midx;
+			float des_y = midy;
 
 			cData des = cData();
 			des.x = des_x;
@@ -211,14 +207,69 @@ alignment_k(cData* part, cData* v, cData* f, int dx, int dy,
 			des = setMagnitude(des, MAX_SPEED);
 
 			cData steer = cData();
-			steer.x = (des_x - v[fj].x);
-			steer.y = (des_y - v[fj].y);
+			/*steer.x = (des_x - v[fj].x);
+			steer.y = (des_y - v[fj].y);*/
+			steer.x = (des_x);
+			steer.y = (des_y);
 			steer = limit(steer, MAX_FORCE);
 
 			f[fj].x += steer.x * ALI_MULTI;
 			f[fj].y += steer.y * ALI_MULTI;
 		}
 	}
+}
+
+
+__global__ void
+avoidEdges_k(cData* p, cData* v, cData* f, int dx, int dy,
+	float dt, int lb)
+{
+
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
+
+	// gtidx is the domain location in x for this thread
+	cData pterm, vterm, fterm;
+
+	if (gtidx < dx)
+	{
+		if (gtidy < dy)
+		{
+			int fj = gtidx + gtidy * dx;
+
+			pterm = p[6 * fj];
+			fterm = f[fj];
+
+
+			float r = OBSTACLES_RADIUS;
+			cData mid = cData();
+			mid.x = 0;
+			mid.y = 0;
+			if (pterm.x < r)
+			{
+				mid.x += r - pterm.x;
+			}
+			if (pterm.y < r)
+			{
+				mid.y += r - pterm.y;
+			}
+			if (pterm.x > 1 - r)
+			{
+				mid.x += (1 - pterm.x) - r;
+			}
+			if (pterm.y > 1 - r)
+			{
+				mid.y += (1 - pterm.y) - r;
+			}
+
+			//mid = limit(mid, MAX_FORCE);
+
+			fterm.x += mid.x * OBS_MULTI;
+			fterm.y += mid.y * OBS_MULTI;
+
+			f[fj] = fterm;
+		} // If this thread is inside the domain in Y
+	} // If this thread is inside the domain in X
 }
 
 
@@ -289,7 +340,9 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			pterm.y += 1.f;
 			pterm.y = pterm.y - (int)pterm.y;
 
-			//alpha[fj] = 
+			float vx = vterm.x;
+			float vy = vterm.y;
+			alpha[fj] = atan2(-vy, -vx);
 
 			part[6 * fj] = pterm;
 			part[6 * fj + 1].x = pterm.x + cos(alpha[fj]) * 0.02;
@@ -325,6 +378,7 @@ void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int
 	cohesion_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
 	separation_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
 	alignment_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
+	avoidEdges_k << <grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
 	applyForces_k << <grid, tids >> > (v, f, SHORE, 1, dt, 1);
 	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1);
 	getLastCudaError("advectParticles_k failed.");
