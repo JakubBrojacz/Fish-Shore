@@ -64,8 +64,8 @@ static cData* vyfield = NULL;
 
 cData* hvfield = NULL;
 cData* dvfield = NULL;
-static int wWidth = 512;
-static int wHeight = 512;
+static int wWidth = 1024;
+static int wHeight = 1024;
 
 float* halphafield = NULL;
 float* dalphafield = NULL;
@@ -187,16 +187,16 @@ void initParticles(cData* p, int shore_count)
 	{
 		p[6 * i].x = (myrand());
 		p[6 * i].y = (myrand());
-		p[6 * i + 1].x = p[6 * i].x + 0.02;
-		p[6 * i + 1].y = p[6 * i].y + 0.02;
+		p[6 * i + 1].x = p[6 * i].x + 0.02f;
+		p[6 * i + 1].y = p[6 * i].y + 0.02f;
 		p[6 * i + 2].x = p[6 * i].x;
 		p[6 * i + 2].y = p[6 * i].y;
-		p[6 * i + 3].x = p[6 * i].x + 0.01;
+		p[6 * i + 3].x = p[6 * i].x + 0.01f;
 		p[6 * i + 3].y = p[6 * i].y;
 		p[6 * i + 4].x = p[6 * i].x;
 		p[6 * i + 4].y = p[6 * i].y;
 		p[6 * i + 5].x = p[6 * i].x;
-		p[6 * i + 5].y = p[6 * i].y + 0.01;
+		p[6 * i + 5].y = p[6 * i].y + 0.01f;
 	}
 }
 
@@ -334,7 +334,7 @@ int main(int argc, char** argv)
 	halphafield = (float*)malloc(sizeof(float) * SHORE);
 	memset(halphafield, 0, sizeof(float)* SHORE);
 	for (int i = 0; i < SHORE; i++)
-		halphafield[i] = 2*3.14*i/SHORE;
+		halphafield[i] = 2.f*3.14f*i/SHORE;
 	cudaMallocPitch((void**)&dalphafield, &tPitch, sizeof(float) * SHORE, 1);
 	cudaMemcpy(dalphafield, halphafield, sizeof(float) * SHORE,
 		cudaMemcpyHostToDevice);
@@ -346,8 +346,8 @@ int main(int argc, char** argv)
 	{
 		/*hvfield[i].x = cos(halphafield[i]) * MAX_SPEED;
 		hvfield[i].y = sin(halphafield[i]) * MAX_SPEED;*/
-		hvfield[i].x = -(myrand()-0.5) / 100;
-		hvfield[i].y = -(myrand()-0.5) / 100;
+		hvfield[i].x = -(myrand()-0.5f) / 100;
+		hvfield[i].y = -(myrand()-0.5f) / 100;
 	}
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
 	cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,

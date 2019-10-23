@@ -145,11 +145,18 @@ separation_k(cData* part, cData* v, cData* f, int dx, int dy,
 			{
 				count++;
 				cData tmp = cData();
-				tmp.x = pterm.x - part[6 * i].x;
-				tmp.y = pterm.y - part[6 * i].y;
-				tmp = setMagnitude(tmp, 1 / sqrt(getSquaredDistance(part[6 * i], pterm)));
-				midx += tmp.x;
-				midy += tmp.y;
+				tmp.x = SEPARATION_RADIUS - abs(pterm.x - part[6 * i].x);
+				tmp.y = SEPARATION_RADIUS - abs(pterm.y - part[6 * i].y);
+				//tmp = setMagnitude(tmp, 1 / sqrt(getSquaredDistance(part[6 * i], pterm)));
+				midx += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
+				midy += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
+				if (getSquaredDistance(part[6 * i], pterm) < SEPARATION_RADIUS * SEPARATION_RADIUS / 100)
+				{
+					tmp.x = tmp.x * tmp.x - SEPARATION_RADIUS * SEPARATION_RADIUS * 81 / 100;
+					tmp.y = tmp.y * tmp.y - SEPARATION_RADIUS * SEPARATION_RADIUS * 81 / 100;
+					midx += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
+					midy += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
+				}
 			}
 		if (count > 0)
 		{
@@ -229,7 +236,7 @@ avoidEdges_k(cData* p, cData* v, cData* f, int dx, int dy,
 	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
 
 	// gtidx is the domain location in x for this thread
-	cData pterm, vterm, fterm;
+	cData pterm, fterm;
 
 	if (gtidx < dx)
 	{
@@ -260,6 +267,15 @@ avoidEdges_k(cData* p, cData* v, cData* f, int dx, int dy,
 			if (pterm.y > 1 - r)
 			{
 				mid.y += (1 - pterm.y) - r;
+			}
+
+			//round vertices
+			if (mid.x != 0 && mid.y != 0)
+			{
+				float addx = abs(mid.y) * (mid.x > 0 ? 1 : -1);
+				float addy = abs(mid.x) * (mid.y > 0 ? 1 : -1);
+				mid.x += addx;
+				mid.y += addy;
 			}
 
 			//mid = limit(mid, MAX_FORCE);
@@ -295,7 +311,7 @@ applyForces_k(cData* v, cData* f, int dx, int dy,
 
 			vterm.x += dt * fterm.x;
 			vterm.y += dt * fterm.y;
-			vterm = limit(vterm, MAX_SPEED);
+			vterm = setMagnitude(vterm, MAX_SPEED);
 
 			v[fj] = vterm;
 		} // If this thread is inside the domain in Y
@@ -344,17 +360,20 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			float vy = vterm.y;
 			alpha[fj] = atan2(-vy, -vx);
 
+			float size_back = 0.02 * FISH_SIZE;
+			float size_fin = 0.01 * FISH_SIZE;
+
 			part[6 * fj] = pterm;
-			part[6 * fj + 1].x = pterm.x + cos(alpha[fj]) * 0.02;
-			part[6 * fj + 1].y = pterm.y + sin(alpha[fj]) * 0.02;
+			part[6 * fj + 1].x = pterm.x + cos(alpha[fj]) * size_back;
+			part[6 * fj + 1].y = pterm.y + sin(alpha[fj]) * size_back;
 			part[6 * fj + 2].x = pterm.x;
 			part[6 * fj + 2].y = pterm.y;
-			part[6 * fj + 3].x = pterm.x + cos(alpha[fj] + M_PI / 6) * 0.01;
-			part[6 * fj + 3].y = pterm.y + sin(alpha[fj] + M_PI / 6) * 0.01;
+			part[6 * fj + 3].x = pterm.x + cos(alpha[fj] + M_PI / 6) * size_fin;
+			part[6 * fj + 3].y = pterm.y + sin(alpha[fj] + M_PI / 6) * size_fin;
 			part[6 * fj + 4].x = pterm.x;
 			part[6 * fj + 4].y = pterm.y;
-			part[6 * fj + 5].x = pterm.x + cos(alpha[fj] - M_PI / 6) * 0.01;
-			part[6 * fj + 5].y = pterm.y + sin(alpha[fj] - M_PI / 6) * 0.01;
+			part[6 * fj + 5].x = pterm.x + cos(alpha[fj] - M_PI / 6) * size_fin;
+			part[6 * fj + 5].y = pterm.y + sin(alpha[fj] - M_PI / 6) * size_fin;
 		} // If this thread is inside the domain in Y
 	} // If this thread is inside the domain in X
 }
