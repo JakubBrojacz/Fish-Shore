@@ -13,12 +13,9 @@
 #define DEFINES_H
 
 #define SHORE 500
-#define SHORE_ARR (SHORE * 6)
+#define SHORE_ARR (SHORE * 6)	// each fish consists of 6 points
 
-#define DT     0.09f     // Delta T for interative solver
-#define VIS    0.0025f   // Viscosity constant
-#define FORCE (5.8f*DIM) // Force scale factor 
-#define FR     4         // Force update radius
+#define DT     0.09f     // Delta T is constant
 
 #define FISH_SIZE 1
 
@@ -26,7 +23,7 @@
 #define SEPARATION_RADIUS (0.02 * FISH_SIZE)
 #define OBSTACLES_RADIUS 0.05
 
-#define MAX_SPEED 0.01 
+#define MAX_SPEED 0.01
 #define MAX_FORCE 0.0015
 
 #define SEP_MULTI 1
