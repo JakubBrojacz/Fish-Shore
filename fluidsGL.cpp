@@ -115,22 +115,28 @@ void display(void)
 	}
 
 	// render points from vertex buffer
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glColor4f(0, 1, 0, 0.5f);
 	glPointSize(1);
-	glEnable(GL_POINT_SMOOTH);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	//glMatrixMode(GL_MODELVIEW);     // To operate on model-view matrix
+   // Render a color-cube consisting of 6 quads with different colors
+	//glLoadIdentity();                 // Reset the model-view matrix
+	//glTranslatef(1.5f, 0.0f, -7.0f);  // Move right and into the screen
+	//glRotatef(0.5f, 1.0f, 1.0f, 1.0f);  // Rotate about (1,1,1)-axis [NEW]
+
+	glPushMatrix();
+	glTranslatef(0, 0, -1);
+	//printf("%f:%f:%f\n", particles[0].x, particles[0].y, particles[0].z);
+
 	glEnableClientState(GL_VERTEX_ARRAY);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glVertexPointer(2, GL_FLOAT, 0, NULL);
+	glVertexPointer(3, GL_FLOAT, 0, NULL);
 	glDrawArrays(GL_LINES, 0, SHORE_ARR);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glDisable(GL_TEXTURE_2D);
+
+	glPopMatrix();
 
 	if (ref_file)
 	{
@@ -187,16 +193,22 @@ void initParticles(cData* p, int shore_count)
 	{
 		p[6 * i].x = (myrand());
 		p[6 * i].y = (myrand());
+		p[6 * i].z = 0;
 		p[6 * i + 1].x = p[6 * i].x + 0.02f;
 		p[6 * i + 1].y = p[6 * i].y + 0.02f;
+		p[6 * i + 1].z = p[6 * i].z;
 		p[6 * i + 2].x = p[6 * i].x;
 		p[6 * i + 2].y = p[6 * i].y;
+		p[6 * i + 2].z = p[6 * i].z;
 		p[6 * i + 3].x = p[6 * i].x + 0.01f;
 		p[6 * i + 3].y = p[6 * i].y;
+		p[6 * i + 3].z = p[6 * i].z;
 		p[6 * i + 4].x = p[6 * i].x;
 		p[6 * i + 4].y = p[6 * i].y;
+		p[6 * i + 4].z = p[6 * i].z;
 		p[6 * i + 5].x = p[6 * i].x;
 		p[6 * i + 5].y = p[6 * i].y + 0.01f;
+		p[6 * i + 5].z = p[6 * i].z;
 	}
 }
 

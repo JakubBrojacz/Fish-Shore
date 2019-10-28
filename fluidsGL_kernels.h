@@ -12,7 +12,7 @@
 #define __STABLEFLUIDS_KERNELS_CUH_
 
 // Vector data type used to velocity and force fields
-typedef float2 cData;
+typedef float3 cData;
 
 // This method updates the particles by moving particle positions
 // according to the velocity field and time step. That is, for each

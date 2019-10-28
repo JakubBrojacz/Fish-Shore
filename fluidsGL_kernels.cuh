@@ -14,7 +14,7 @@
 #include "defines.h"
 
 // Vector data type used to velocity and force fields
-typedef float2 cData;
+typedef float3 cData;
 
 
 __device__ inline float getSquaredDistance(cData c1, cData c2);
