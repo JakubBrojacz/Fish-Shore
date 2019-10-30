@@ -84,6 +84,14 @@ struct cudaGraphicsResource* cuda_vbo_resource; // handles OpenGL-CUDA exchange
 static cData* particles = NULL; // particle positions in host memory
 static int lastx = 0, lasty = 0;
 
+int ox, oy;
+int buttonState = 0;
+float camera_trans[] = { 0, 0, -1 };
+float camera_rot[] = { 0, 0, 0 };
+float camera_trans_lag[] = { 0, 0, -1 };
+float camera_rot_lag[] = { 0, 0, 0 };
+const float inertia = 0.1f;
+
 // Texture pitch
 size_t tPitch = 0; // Now this is compatible with gcc in 64-bit
 
@@ -116,18 +124,52 @@ void display(void)
 
 	// render points from vertex buffer
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glColor4f(0, 1, 0, 0.5f);
-	glPointSize(1);
+	glEnable(GL_DEPTH_TEST);
 
-	//glMatrixMode(GL_MODELVIEW);     // To operate on model-view matrix
-   // Render a color-cube consisting of 6 quads with different colors
-	//glLoadIdentity();                 // Reset the model-view matrix
-	//glTranslatef(1.5f, 0.0f, -7.0f);  // Move right and into the screen
-	//glRotatef(0.5f, 1.0f, 1.0f, 1.0f);  // Rotate about (1,1,1)-axis [NEW]
+	for (int c = 0; c < 3; ++c)
+	{
+		camera_trans_lag[c] += (camera_trans[c] - camera_trans_lag[c]) * inertia;
+		camera_rot_lag[c] += (camera_rot[c] - camera_rot_lag[c]) * inertia;
+	}
 
 	glPushMatrix();
-	glTranslatef(0, 0, -1);
-	//printf("%f:%f:%f\n", particles[0].x, particles[0].y, particles[0].z);
+	glTranslatef(camera_trans_lag[0], camera_trans_lag[1], camera_trans_lag[2]);
+	glRotatef(camera_rot_lag[0], 1.0, 0.0, 0.0);
+	glRotatef(camera_rot_lag[1], 0.0, 1.0, 0.0);
+
+	glColor4f(1, 0, 0, 0.5f);
+	glPointSize(1);
+	glBegin(GL_LINES);
+	glVertex3f(0.25, 0.25, 0.25);
+	glVertex3f(0.75, 0.25, 0.25);
+	glVertex3f(0.25, 0.25, 0.25);
+	glVertex3f(0.25, 0.75, 0.25);
+	glVertex3f(0.25, 0.25, 0.25);
+	glVertex3f(0.25, 0.25, 0.75);
+	glVertex3f(0.75, 0.75, 0.75);
+	glVertex3f(0.25, 0.75, 0.75);
+	glVertex3f(0.75, 0.75, 0.75);
+	glVertex3f(0.75, 0.25, 0.75);
+	glVertex3f(0.75, 0.75, 0.75);
+	glVertex3f(0.75, 0.75, 0.25);
+	glVertex3f(0.75, 0.25, 0.25);
+	glVertex3f(0.75, 0.75, 0.25);
+	glVertex3f(0.75, 0.25, 0.25);
+	glVertex3f(0.75, 0.25, 0.75);
+	glVertex3f(0.25, 0.75, 0.25);
+	glVertex3f(0.75, 0.75, 0.25);
+	glVertex3f(0.25, 0.75, 0.25);
+	glVertex3f(0.25, 0.75, 0.75);
+	glVertex3f(0.25, 0.25, 0.75);
+	glVertex3f(0.75, 0.25, 0.75);
+	glVertex3f(0.25, 0.25, 0.75);
+	glVertex3f(0.25, 0.75, 0.75);
+
+	glEnd();
+
+
+	glColor4f(0, 1, 0, 0.5f);
+	glPointSize(1);
 
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -193,7 +235,12 @@ void initParticles(cData* p, int shore_count)
 	{
 		p[6 * i].x = (myrand());
 		p[6 * i].y = (myrand());
+#ifdef Z_AXIS
+		p[6 * i].z = (myrand());
+#else
 		p[6 * i].z = 0;
+#endif // Z_AXIS
+
 		p[6 * i + 1].x = p[6 * i].x + 0.02f;
 		p[6 * i + 1].y = p[6 * i].y + 0.02f;
 		p[6 * i + 1].z = p[6 * i].z;
@@ -231,15 +278,64 @@ void keyboard(unsigned char key, int x, int y)
 	}
 }
 
-void click(int button, int updown, int x, int y)
-{
-	lastx = x;
-	lasty = y;
-	clicked = !clicked;
-}
-
 void motion(int x, int y)
 {
+	float dx, dy;
+	dx = (float)(x - ox);
+	dy = (float)(y - oy);
+
+	if (buttonState == 3)
+	{
+		// left+middle = zoom
+		camera_trans[2] += (dy / 100.0f) * 0.5f * fabs(camera_trans[2]);
+	}
+	else if (buttonState & 2)
+	{
+		// middle = translate
+		camera_trans[0] += dx / 100.0f;
+		camera_trans[1] -= dy / 100.0f;
+	}
+	else if (buttonState & 1)
+	{
+		// left = rotate
+		camera_rot[0] += dy / 5.0f;
+		camera_rot[1] += dx / 5.0f;
+	}
+
+
+	ox = x;
+	oy = y;
+
+	glutPostRedisplay();
+}
+
+void mouse(int button, int state, int x, int y)
+{
+	int mods;
+
+	if (state == GLUT_DOWN)
+	{
+		buttonState |= 1 << button;
+	}
+	else if (state == GLUT_UP)
+	{
+		buttonState = 0;
+	}
+
+	mods = glutGetModifiers();
+
+	if (mods & GLUT_ACTIVE_SHIFT)
+	{
+		buttonState = 2;
+	}
+	else if (mods & GLUT_ACTIVE_CTRL)
+	{
+		buttonState = 3;
+	}
+
+	ox = x;
+	oy = y;
+
 	glutPostRedisplay();
 }
 
@@ -287,7 +383,7 @@ int initGL(int* argc, char** argv)
 	glutCreateWindow("Compute Stable Fluids");
 	glutDisplayFunc(display);
 	glutKeyboardFunc(keyboard);
-	glutMouseFunc(click);
+	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
 	glutReshapeFunc(reshape);
 

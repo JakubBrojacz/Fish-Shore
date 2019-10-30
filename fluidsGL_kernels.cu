@@ -42,7 +42,12 @@ __device__ inline cData empty()
 
 __device__ inline float getSquaredDistance(cData c1, cData c2=empty())
 {
+#ifdef Z_AXIS
 	return (c1.x - c2.x) * (c1.x - c2.x) + (c1.y - c2.y) * (c1.y - c2.y) + (c1.z - c2.z) * (c1.z - c2.z);
+#else
+	return (c1.x - c2.x) * (c1.x - c2.x) + (c1.y - c2.y) * (c1.y - c2.y);
+#endif // Z_AXIS
+
 }
 
 __device__ inline cData add(cData c1, cData c2)
@@ -59,7 +64,11 @@ __device__ inline cData add(cData c1, float m)
 	cData c3 = empty();
 	c3.x = c1.x + m;
 	c3.y = c1.y + m;
+#ifdef Z_AXIS
 	c3.z = c1.z + m;
+#else
+	c3.z = c1.z;
+#endif // Z_AXIS
 	return c3;
 }
 
@@ -111,9 +120,12 @@ __device__ inline cData abs(cData c1)
 __device__ cData setMagnitude(cData c, float m)
 {
 	float l = getSquaredDistance(c);
-	if (l > 0.0001)
+	if (l > 0.000001)
 	{
-		c = multiply(c, m * m / l);
+		cData c1 = empty();
+		c1 = multiply(c, m / sqrt(l));
+		//printf("%f:%f:%f:::%f:%f:%f:::%f:%f:%f\n", l,getSquaredDistance(c1), m, c.x, c.y, c.z, c1.x, c1.y, c1.z);
+		return c1;
 	}
 	return c;
 }
@@ -208,10 +220,10 @@ separation_k(cData* part, cData* v, cData* f, int dx, int dy,
 				tmp = multiply(tmp, -1);
 				tmp = add(tmp, SEPARATION_RADIUS);
 
-			/*	if (getSquaredDistance(part[6 * i], pterm) < SEPARATION_RADIUS * SEPARATION_RADIUS / 100)
+				if (getSquaredDistance(part[6 * i], pterm) < SEPARATION_RADIUS * SEPARATION_RADIUS / 100)
 				{
-					tmp = multiply(tmp, tmp);
-				}*/
+					tmp = multiply(tmp, 3);
+				}
 				mid.x += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
 				mid.y += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
 				mid.z += tmp.z * (pterm.z > part[6 * i].z ? 1 : -1);
@@ -287,29 +299,33 @@ avoidEdges_k(cData* p, cData* v, cData* f, int dx, int dy,
 
 			float r = OBSTACLES_RADIUS;
 			cData mid = empty();
-			if (pterm.x < r)
+			if (pterm.x < 0.25+r)
 			{
-				mid.x += r - pterm.x;
+				mid.x += 0.25 + r - pterm.x;
 			}
-			if (pterm.y < r)
+			if (pterm.y < 0.25 + r)
 			{
-				mid.y += r - pterm.y;
+				mid.y += 0.25 + r - pterm.y;
 			}
-			if (pterm.z < r)
+			if (pterm.z < 0.25 + r)
 			{
-				mid.z += r - pterm.z;
+#ifdef Z_AXIS
+				mid.z += 0.25 + r - pterm.z;
+#endif // Z_AXIS
 			}
-			if (pterm.x > 1 - r)
+			if (pterm.x > 0.75 - r)
 			{
-				mid.x += (1 - pterm.x) - r;
+				mid.x += (0.75 - pterm.x) - r;
 			}
-			if (pterm.y > 1 - r)
+			if (pterm.y > 0.75 - r)
 			{
-				mid.y += (1 - pterm.y) - r;
+				mid.y += (0.75 - pterm.y) - r;
 			}
-			if (pterm.z > 1 - r)
+			if (pterm.z > 0.75 - r)
 			{
-				mid.z += (1 - pterm.z) - r;
+#ifdef Z_AXIS
+				mid.z += (0.75 - pterm.z) - r;
+#endif // Z_AXIS
 			}
 
 			//round vertices
@@ -383,11 +399,6 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			int fj = gtidx + gtidy * dx;
 			pterm = part[6 * fj];
 
-
-			/*v[fj].y = -sin(alpha[fj]) * 0.01;
-			v[fj].x = -cos(alpha[fj]) * 0.01;*/
-
-
 			vterm = v[fj];
 
 			cData tmp = multiply(vterm, dt);
@@ -400,21 +411,12 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			alpha[fj] = atan2(-vterm.y, -vterm.x);
 
 			float size_back = 0.02 * FISH_SIZE;
-			float size_fin = 0.01 * FISH_SIZE;
+
+			cData v_scalled = setMagnitude(vterm, size_back);
 
 			part[6 * fj] = pterm;
-			part[6 * fj + 1].x = pterm.x + cos(alpha[fj]) * size_back;
-			part[6 * fj + 1].y = pterm.y + sin(alpha[fj]) * size_back;
-			part[6 * fj + 2].x = pterm.x;
-			part[6 * fj + 2].y = pterm.y;
-			part[6 * fj + 3].x = pterm.x + cos(alpha[fj] + M_PI / 6) * size_fin;
-			part[6 * fj + 3].y = pterm.y + sin(alpha[fj] + M_PI / 6) * size_fin;
-			part[6 * fj + 4].x = pterm.x;
-			part[6 * fj + 4].y = pterm.y;
-			part[6 * fj + 5].x = pterm.x + cos(alpha[fj] - M_PI / 6) * size_fin;
-			part[6 * fj + 5].y = pterm.y + sin(alpha[fj] - M_PI / 6) * size_fin;
-		/*	if (fj == 0)
-				printf("%f:%f:%f\n", pterm.x, pterm.y, pterm.z);*/
+			part[6 * fj + 1] = subtract(pterm, v_scalled);
+			part[6 * fj + 2] = part[6 * fj + 3] = part[6 * fj + 4] = part[6 * fj + 5] = empty();
 		} // If this thread is inside the domain in Y
 	} // If this thread is inside the domain in X
 }
@@ -422,8 +424,8 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 extern "C"
 void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int dy, float dt)
 {
-	dim3 grid(1, 1);
-	dim3 tids(SHORE, 1);
+	dim3 grid(SHORE/1024, 1);
+	dim3 tids(1024, 1);
 
 	cData* p;
 	cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
