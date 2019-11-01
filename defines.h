@@ -13,9 +13,9 @@
 #define DEFINES_H
 
 #define Z_AXIS
-#define TEST_TIME false
+#define TEST_TIME true
 
-#define SHORE 1024
+#define SHORE 2048
 #define SHORE_ARR (SHORE * 6)	// each fish consists of 6 points
 
 #define DT     0.09f     // Delta T is constant

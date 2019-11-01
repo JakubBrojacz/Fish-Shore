@@ -142,14 +142,13 @@ __device__ cData limit(cData c, float m)
 
 
 __global__ void update_k(cData* part, cData* v,
-	int dx, int dy, float dt, int lb)
+	int dx, float dt)
 {
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
 
-	if (gtidx < dx && gtidy < dy)
+	if (gtidx < dx)
 	{
-		int fj = gtidx + gtidy * dx;
+		int fj = gtidx;
 
 		cData pterm = part[6*fj];
 		cData vterm = v[fj];
@@ -302,9 +301,9 @@ __global__ void update_k(cData* part, cData* v,
 }
 
 extern "C"
-void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt)
+void advectParticles(GLuint vbo, cData * v, int dx, float dt)
 {
-	dim3 grid(SHORE/1024, 1);
+	dim3 grid(dx/1024, 1);
 	dim3 tids(1024, 1);
 
 	cData* p;
@@ -316,7 +315,7 @@ void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt)
 		cuda_vbo_resource);
 	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
-	update_k << < grid, tids >> > (p, v, SHORE, 1, dt, 1);
+	update_k << < grid, tids >> > (p, v, dx, dt);
 	getLastCudaError("update_k failed.");
 
 	cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
@@ -326,18 +325,19 @@ void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt)
 
 
 extern "C"
-void test(GLuint vbo, cData * v, int dx, int dy, float dt)
+void test(GLuint vbo, cData * v, int dx, float dt)
 {
 	float sum_milliseconds = 0;
+	int times = 100;
 
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < times; i++)
 	{
 		cudaEvent_t start, stop;
 		cudaEventCreate(&start);
 		cudaEventCreate(&stop);
 		cudaEventRecord(start);
 
-		advectParticles(vbo, v, dx, dy, dt);
+		advectParticles(vbo, v, dx, dt);
 
 		cudaEventRecord(stop);
 		cudaEventSynchronize(stop);
@@ -346,5 +346,5 @@ void test(GLuint vbo, cData * v, int dx, int dy, float dt)
 		sum_milliseconds += milliseconds;
 	}
 	
-	printf("Time: %f", sum_milliseconds);
+	printf("Avarage time of update: %f", sum_milliseconds/times);
 }

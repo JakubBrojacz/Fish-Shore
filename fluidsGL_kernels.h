@@ -18,7 +18,7 @@ typedef float3 cData;
 // according to the velocity field and time step. That is, for each
 // particle: p(t+1) = p(t) + dt * v(p(t)).
 __global__ void
-update_k(cData *part, cData *v, int dx, int dy,
+update_k(cData *part, cData *v, int dx,
                   float dt, int lb);
 
 #endif
