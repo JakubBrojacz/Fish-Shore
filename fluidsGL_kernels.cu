@@ -141,9 +141,8 @@ __device__ cData limit(cData c, float m)
 }
 
 
-__global__ void
-prepare_k(cData* f, int dx, int dy,
-	float dt, int lb)
+__global__ void update_k(cData* part, cData* v,
+	int dx, int dy, float dt, int lb)
 {
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
 	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
@@ -151,264 +150,144 @@ prepare_k(cData* f, int dx, int dy,
 	if (gtidx < dx && gtidy < dy)
 	{
 		int fj = gtidx + gtidy * dx;
-		f[fj].x = 0;
-		f[fj].y = 0;
-		f[fj].z = 0;
-	}
-}
+
+		cData pterm = part[6*fj];
+		cData vterm = v[fj];
+		cData fterm = empty();
 
 
-__global__ void
-cohesion_k(cData* part, cData* v, cData* f, int dx, int dy,
-	float dt, int lb)
-{
-	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-
-	cData pterm;
-
-	if (gtidx < dx && gtidy < dy)
-	{
-		int fj = gtidx + gtidy * dx;
-		pterm = part[6 * fj];
-
-		int count = 0;
-		cData mid = empty();
+		//SHORE FUNCTIONS
+		cData mid_cohesion = empty();
+		cData mid_alignment = empty();
+		cData mid_separation = empty();
+		cData mid_obstacles = empty();
+		int count_cohesion = 0;
+		int count_alignment = 0;
+		int count_separation = 0;
 		for (int i = 0; i < SHORE; i++)
-			if (i != fj && getSquaredDistance(part[6 * i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
-			{
-				count++;
-				mid = add(mid, part[6*i]);
-			}
-		if (count > 0)
 		{
-			mid = divide(mid, count);
-			cData des = subtract(mid, pterm);
+			if (i != fj)
+			{
+				float sqr_distance = getSquaredDistance(part[6 * i], pterm);
+
+				//COHESION
+				if (sqr_distance < SIGN_RADIUS * SIGN_RADIUS)
+				{
+					count_cohesion++;
+					mid_cohesion = add(mid_cohesion, part[6 * i]);
+				}
+
+				//ALIGNMENT
+				if (sqr_distance < SIGN_RADIUS * SIGN_RADIUS)
+				{
+					count_alignment++;
+					mid_alignment = add(mid_alignment, v[i]);
+				}
+
+				//SEPARATION
+				if (sqr_distance < SEPARATION_RADIUS * SEPARATION_RADIUS)
+				{
+					count_separation++;
+
+					cData tmp = subtract(pterm, part[6 * i]);
+					tmp = abs(tmp);
+					tmp = multiply(tmp, -1);
+					tmp = add(tmp, SEPARATION_RADIUS);
+
+					if (sqr_distance < SEPARATION_RADIUS * SEPARATION_RADIUS / 100)
+					{
+						tmp = multiply(tmp, 3);
+					}
+					mid_separation.x += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
+					mid_separation.y += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
+					mid_separation.z += tmp.z * (pterm.z > part[6 * i].z ? 1 : -1);
+				}
+			}
+		} //for fish in SHORE
+
+		if (count_cohesion)
+		{
+			mid_cohesion = divide(mid_cohesion, count_cohesion);
+			cData des = subtract(mid_cohesion, pterm);
 
 			cData steer = limit(des, MAX_FORCE);
 			steer = multiply(steer, COH_MULTI);
 
-			f[fj] = add(f[fj], steer);
+			fterm = add(fterm, steer);
 		}
-	}
-}
-
-__global__ void
-separation_k(cData* part, cData* v, cData* f, int dx, int dy,
-	float dt, int lb)
-{
-	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-
-	cData pterm;
-
-	if (gtidx < dx && gtidy < dy)
-	{
-		int fj = gtidx + gtidy * dx;
-		pterm = part[6 * fj];
-
-		int count = 0;
-		cData mid = empty();
-		for (int i = 0; i < SHORE; i++)
-			if (i != fj && getSquaredDistance(part[6 * i], pterm) < SEPARATION_RADIUS * SEPARATION_RADIUS)
-			{
-				count++;
-
-				//tmp = SEPARATION_RADIUS - abs(pterm - part[6 * i])
-				cData tmp = subtract(pterm, part[6 * i]);
-				tmp = abs(tmp);
-				tmp = multiply(tmp, -1);
-				tmp = add(tmp, SEPARATION_RADIUS);
-
-				if (getSquaredDistance(part[6 * i], pterm) < SEPARATION_RADIUS * SEPARATION_RADIUS / 100)
-				{
-					tmp = multiply(tmp, 3);
-				}
-				mid.x += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
-				mid.y += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
-				mid.z += tmp.z * (pterm.z > part[6 * i].z ? 1 : -1);
-			}
-		if (count > 0)
+		if (count_alignment)
 		{
-			mid = divide(mid, count);
+			mid_alignment = divide(mid_alignment, count_alignment);
 
-			cData steer = setMagnitude(mid, MAX_FORCE);
-			steer = multiply(steer, SEP_MULTI);
-
-			f[fj] = add(f[fj], steer);
-		}
-	}
-}
-
-
-__global__ void
-alignment_k(cData* part, cData* v, cData* f, int dx, int dy,
-	float dt, int lb)
-{
-	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-
-	cData pterm;
-
-	if (gtidx < dx && gtidy < dy)
-	{
-		int fj = gtidx + gtidy * dx;
-		pterm = part[6 * fj];
-
-		int count = 0;
-		cData mid = empty();
-		for (int i = 0; i < SHORE; i++)
-			if (i != fj && getSquaredDistance(part[6 * i], pterm) < SIGN_RADIUS * SIGN_RADIUS)
-			{
-				count++;
-				mid = add(mid, v[i]);
-			}
-		if (count > 0)
-		{
-			mid = divide(mid, count);
-
-			cData steer = setMagnitude(mid, MAX_FORCE);
+			cData steer = setMagnitude(mid_alignment, MAX_FORCE);
 			steer = multiply(steer, ALI_MULTI);
 
-			f[fj] = add(f[fj], steer);
+			fterm = add(fterm, steer);
 		}
-	}
-}
-
-
-__global__ void
-avoidEdges_k(cData* p, cData* v, cData* f, int dx, int dy,
-	float dt, int lb)
-{
-
-	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-
-	// gtidx is the domain location in x for this thread
-	cData pterm, fterm;
-
-	if (gtidx < dx)
-	{
-		if (gtidy < dy)
+		if (count_separation)
 		{
-			int fj = gtidx + gtidy * dx;
+			mid_separation = divide(mid_separation, count_separation);
 
-			pterm = p[6 * fj];
-			fterm = f[fj];
+			cData steer = setMagnitude(mid_separation, MAX_FORCE);
+			steer = multiply(steer, SEP_MULTI);
 
-
-			float r = OBSTACLES_RADIUS;
-			cData mid = empty();
-			if (pterm.x < 0.25+r)
-			{
-				mid.x += 0.25 + r - pterm.x;
-			}
-			if (pterm.y < 0.25 + r)
-			{
-				mid.y += 0.25 + r - pterm.y;
-			}
-			if (pterm.z < 0.25 + r)
-			{
-#ifdef Z_AXIS
-				mid.z += 0.25 + r - pterm.z;
-#endif // Z_AXIS
-			}
-			if (pterm.x > 0.75 - r)
-			{
-				mid.x += (0.75 - pterm.x) - r;
-			}
-			if (pterm.y > 0.75 - r)
-			{
-				mid.y += (0.75 - pterm.y) - r;
-			}
-			if (pterm.z > 0.75 - r)
-			{
-#ifdef Z_AXIS
-				mid.z += (0.75 - pterm.z) - r;
-#endif // Z_AXIS
-			}
-
-			//round vertices
-			if (mid.x != 0 && mid.y != 0)
-			{
-				float addx = abs(mid.y) * (mid.x > 0 ? 1 : -1);
-				float addy = abs(mid.x) * (mid.y > 0 ? 1 : -1);
-				mid.x += addx;
-				mid.y += addy;
-			}
-
-			//mid = limit(mid, MAX_FORCE);
-
-			mid = multiply(mid, OBS_MULTI);
-			fterm = add(fterm, mid);
-
-			f[fj] = fterm;
-		} // If this thread is inside the domain in Y
-	} // If this thread is inside the domain in X
-}
+			fterm = add(fterm, steer);
+		}
 
 
-__global__ void
-applyForces_k(cData* v, cData* f, int dx, int dy,
-	float dt, int lb)
-{
-
-	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-
-	// gtidx is the domain location in x for this thread
-	cData vterm, fterm;
-
-	if (gtidx < dx)
-	{
-		if (gtidy < dy)
+		//AVOID OBSTACLES
+		float r = OBSTACLES_RADIUS;
+		if (pterm.x < 0.25 + r)
 		{
-			int fj = gtidx + gtidy * dx;
+			mid_obstacles.x += 0.25 + r - pterm.x;
+		}
+		if (pterm.y < 0.25 + r)
+		{
+			mid_obstacles.y += 0.25 + r - pterm.y;
+		}
+		if (pterm.z < 0.25 + r)
+		{
+#ifdef Z_AXIS
+			mid_obstacles.z += 0.25 + r - pterm.z;
+#endif // Z_AXIS
+		}
+		if (pterm.x > 0.75 - r)
+		{
+			mid_obstacles.x += (0.75 - pterm.x) - r;
+		}
+		if (pterm.y > 0.75 - r)
+		{
+			mid_obstacles.y += (0.75 - pterm.y) - r;
+		}
+		if (pterm.z > 0.75 - r)
+		{
+#ifdef Z_AXIS
+			mid_obstacles.z += (0.75 - pterm.z) - r;
+#endif // Z_AXIS
+		}
 
-			vterm = v[fj];
-			fterm = f[fj];
+		mid_obstacles = multiply(mid_obstacles, OBS_MULTI);
+		fterm = add(fterm, mid_obstacles);
 
+
+		//APPLY FORCES
+		{
 			cData tmp = multiply(fterm, dt);
 			vterm = add(vterm, tmp);
 			vterm = setMagnitude(vterm, MAX_SPEED);
 
 			v[fj] = vterm;
-		} // If this thread is inside the domain in Y
-	} // If this thread is inside the domain in X
-}
+		}
 
 
-// This method updates the particles by moving particle positions
-// according to the velocity field and time step. That is, for each
-// particle: p(t+1) = p(t) + dt * v(p(t)).
-__global__ void
-advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
-	float dt, int lb)
-{
-
-	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
-	int gtidy = blockIdx.y * (lb * blockDim.y) + threadIdx.y * lb;
-
-	// gtidx is the domain location in x for this thread
-	cData pterm, vterm;
-
-	if (gtidx < dx)
-	{
-		if (gtidy < dy)
+		//ADVERT PARTICLES
 		{
-			int fj = gtidx + gtidy * dx;
-			pterm = part[6 * fj];
-
-			vterm = v[fj];
-
 			cData tmp = multiply(vterm, dt);
 			tmp = add(tmp, 1.f);
 			pterm = add(pterm, tmp);
 			pterm.x = pterm.x - (int)pterm.x;
 			pterm.y = pterm.y - (int)pterm.y;
 			pterm.z = pterm.z - (int)pterm.z;
-
-			alpha[fj] = atan2(-vterm.y, -vterm.x);
 
 			float size_back = 0.02 * FISH_SIZE;
 
@@ -417,12 +296,13 @@ advectParticles_k(cData* part, cData* v, float* alpha, int dx, int dy,
 			part[6 * fj] = pterm;
 			part[6 * fj + 1] = subtract(pterm, v_scalled);
 			part[6 * fj + 2] = part[6 * fj + 3] = part[6 * fj + 4] = part[6 * fj + 5] = empty();
-		} // If this thread is inside the domain in Y
-	} // If this thread is inside the domain in X
+		}
+
+	}
 }
 
 extern "C"
-void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int dy, float dt)
+void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt)
 {
 	dim3 grid(SHORE/1024, 1);
 	dim3 tids(1024, 1);
@@ -436,14 +316,8 @@ void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int
 		cuda_vbo_resource);
 	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
-	prepare_k << < grid, tids >> > (f, SHORE, 1, dt, 1);
-	cohesion_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
-	separation_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
-	alignment_k << < grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
-	avoidEdges_k << <grid, tids >> > (p, v, f, SHORE, 1, dt, 1);
-	applyForces_k << <grid, tids >> > (v, f, SHORE, 1, dt, 1);
-	advectParticles_k << < grid, tids >> > (p, v, alpha, SHORE, 1, dt, 1);
-	getLastCudaError("advectParticles_k failed.");
+	update_k << < grid, tids >> > (p, v, SHORE, 1, dt, 1);
+	getLastCudaError("update_k failed.");
 
 	cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
 	getLastCudaError("cudaGraphicsUnmapResources failed");

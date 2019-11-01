@@ -67,12 +67,6 @@ cData* dvfield = NULL;
 static int wWidth = 1024;
 static int wHeight = 1024;
 
-float* halphafield = NULL;
-float* dalphafield = NULL;
-
-cData* hffield = NULL;
-cData* dffield = NULL;
-
 static int clicked = 0;
 static int fpsCount = 0;
 static int fpsLimit = 1;
@@ -105,12 +99,12 @@ bool g_bExitESC = false;
 // CheckFBO/BackBuffer class objects
 CheckRender* g_CheckRender = NULL;
 
-extern "C" void advectParticles(GLuint vbo, cData * v, cData * f, float* alpha, int dx, int dy, float dt);
+extern "C" void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt);
 
 
 void simulateFluids(void)
 {
-	advectParticles(vbo, dvfield, dffield, dalphafield, SHORE_ARR, 1, DT);
+	advectParticles(vbo, dvfield, SHORE_ARR, 1, DT);
 }
 
 void display(void)
@@ -358,12 +352,8 @@ void cleanup(void)
 
 	// Free all host and device resources
 	free(hvfield);
-	free(hffield);
-	free(halphafield);
 	free(particles);
 	cudaFree(dvfield);
-	cudaFree(dffield);
-	cudaFree(dalphafield);
 	cudaFree(vxfield);
 	cudaFree(vyfield);
 	cufftDestroy(planr2c);
@@ -438,15 +428,6 @@ int main(int argc, char** argv)
 	sdkCreateTimer(&timer);
 	sdkResetTimer(&timer);
 
-	// alpha
-	halphafield = (float*)malloc(sizeof(float) * SHORE);
-	memset(halphafield, 0, sizeof(float)* SHORE);
-	for (int i = 0; i < SHORE; i++)
-		halphafield[i] = 2.f*3.14f*i/SHORE;
-	cudaMallocPitch((void**)&dalphafield, &tPitch, sizeof(float) * SHORE, 1);
-	cudaMemcpy(dalphafield, halphafield, sizeof(float) * SHORE,
-		cudaMemcpyHostToDevice);
-
 	// velocity
 	hvfield = (cData*)malloc(sizeof(cData) * SHORE);
 	memset(hvfield, 0, sizeof(cData) * SHORE);
@@ -459,18 +440,6 @@ int main(int argc, char** argv)
 	}
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
 	cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,
-		cudaMemcpyHostToDevice);
-
-	///force
-	hffield = (cData*)malloc(sizeof(cData) * SHORE);
-	memset(hffield, 0, sizeof(cData) * SHORE);
-	for (int i = 0; i < SHORE; i++)
-	{
-		hffield[i].y = 0;
-		hffield[i].x = 0;
-	}
-	cudaMallocPitch((void**)&dffield, &tPitch, sizeof(cData) * SHORE, 1);
-	cudaMemcpy(dffield, hffield, sizeof(cData) * SHORE,
 		cudaMemcpyHostToDevice);
 
 	// localization

@@ -112,6 +112,7 @@
     <CudaCompile Include="fluidsGL_kernels.cu" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="fluidsGL_kernels.h" />
+    <CudaCompile Include="old_kernels.cu" />
     <None Include="fluidsGL_kernels.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
