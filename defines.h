@@ -13,6 +13,7 @@
 #define DEFINES_H
 
 #define Z_AXIS
+#define TEST_TIME false
 
 #define SHORE 1024
 #define SHORE_ARR (SHORE * 6)	// each fish consists of 6 points

@@ -12,15 +12,7 @@
  // OpenGL Graphics includes
 #include <helper_gl.h>
 
-#if defined(__APPLE__) || defined(MACOSX)
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#include <GLUT/glut.h>
-#ifndef glutCloseFunc
-#define glutCloseFunc glutWMCloseFunc
-#endif
-#else
 #include <GL/freeglut.h>
-#endif
 
 // Includes
 #include <stdlib.h>
@@ -42,42 +34,24 @@
 #include "defines.h"
 #include "fluidsGL_kernels.h"
 
-#define MAX_EPSILON_ERROR 1.0f
-
-const char* sSDKname = "fluidsGL";
-// CUDA example code that implements the frequency space version of
-// Jos Stam's paper 'Stable Fluids' in 2D. This application uses the
-// CUDA FFT library (CUFFT) to perform velocity diffusion and to
-// force non-divergence in the velocity field at each time step. It uses
-// CUDA-OpenGL interoperability to update the particle field directly
-// instead of doing a copy to system memory before drawing. Texture is
-// used for automatic bilinear interpolation at the velocity advection step.
+const char* sSDKname = "FishShore";
 
 void cleanup(void);
 void reshape(int x, int y);
 
-// CUFFT plan handle
-cufftHandle planr2c;
-cufftHandle planc2r;
-static cData* vxfield = NULL;
-static cData* vyfield = NULL;
-
-cData* hvfield = NULL;
-cData* dvfield = NULL;
+//Window size data
 static int wWidth = 1024;
 static int wHeight = 1024;
-
-static int clicked = 0;
-static int fpsCount = 0;
-static int fpsLimit = 1;
-StopWatchInterface* timer = NULL;
 
 // Particle data
 GLuint vbo = 0;                 // OpenGL vertex buffer object
 struct cudaGraphicsResource* cuda_vbo_resource; // handles OpenGL-CUDA exchange
 static cData* particles = NULL; // particle positions in host memory
-static int lastx = 0, lasty = 0;
 
+cData* hvfield = NULL;
+cData* dvfield = NULL;
+
+//Camera movement data
 int ox, oy;
 int buttonState = 0;
 float camera_trans[] = { 0, 0, -1 };
@@ -89,17 +63,9 @@ const float inertia = 0.1f;
 // Texture pitch
 size_t tPitch = 0; // Now this is compatible with gcc in 64-bit
 
-char* ref_file = NULL;
-bool g_bQAAddTestForce = true;
-int  g_iFrameToCompare = 100;
-int  g_TotalErrors = 0;
-
-bool g_bExitESC = false;
-
-// CheckFBO/BackBuffer class objects
-CheckRender* g_CheckRender = NULL;
 
 extern "C" void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt);
+extern "C" void test(GLuint vbo, cData * v, int dx, int dy, float dt);
 
 
 void simulateFluids(void)
@@ -109,12 +75,7 @@ void simulateFluids(void)
 
 void display(void)
 {
-
-	if (!ref_file)
-	{
-		sdkStartTimer(&timer);
-		simulateFluids();
-	}
+	simulateFluids();
 
 	// render points from vertex buffer
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -174,63 +135,31 @@ void display(void)
 
 	glPopMatrix();
 
-	if (ref_file)
-	{
-		return;
-	}
 
-	// Finish timing before swap buffers to avoid refresh sync
-	sdkStopTimer(&timer);
 	glutSwapBuffers();
 
-	fpsCount++;
 
-	if (fpsCount == fpsLimit)
-	{
-		char fps[256];
-		float ifps = 1.f / (sdkGetAverageTimerValue(&timer) / 1000.f);
-		sprintf(fps, "Cuda/GL Stable Fluids (%d x %d): %3.1f fps", SHORE, 1, ifps);
-		glutSetWindowTitle(fps);
-		fpsCount = 0;
-		fpsLimit = (int)MAX(ifps, 1.f);
-		sdkResetTimer(&timer);
-	}
+	//char fps[256];
+	//sprintf(fps, "Cuda/GL Fish Shore (%d x %d)", SHORE, 1);
+	//glutSetWindowTitle(fps);
+
 
 	glutPostRedisplay();
 }
 
-// very simple von neumann middle-square prng.  can't use rand() in -qatest
-// mode because its implementation varies across platforms which makes testing
-// for consistency in the important parts of this program difficult.
 float myrand(void)
 {
-	static int seed = 72191;
-	char sq[22];
-
-	if (ref_file)
-	{
-		seed *= seed;
-		sprintf(sq, "%010d", seed);
-		// pull the middle 5 digits out of sq
-		sq[8] = 0;
-		seed = atoi(&sq[3]);
-
-		return seed / 99999.f;
-	}
-	else
-	{
-		return rand() / (float)RAND_MAX;
-	}
+	return rand() / (float)RAND_MAX;
 }
 
 void initParticles(cData* p, int shore_count)
 {
 	for (int i = 0; i < shore_count; i++)
 	{
-		p[6 * i].x = (myrand());
-		p[6 * i].y = (myrand());
+		p[6 * i].x = (myrand()/2+0.25f);
+		p[6 * i].y = (myrand()/2+0.25f);
 #ifdef Z_AXIS
-		p[6 * i].z = (myrand());
+		p[6 * i].z = (myrand()/2+0.25f);
 #else
 		p[6 * i].z = 0;
 #endif // Z_AXIS
@@ -258,14 +187,8 @@ void keyboard(unsigned char key, int x, int y)
 	switch (key)
 	{
 	case 27:
-		g_bExitESC = true;
-#if defined (__APPLE__) || defined(MACOSX)
-		exit(EXIT_SUCCESS);
-#else
 		glutDestroyWindow(glutGetWindow());
 		return;
-#endif
-		break;
 
 	default:
 		break;
@@ -354,15 +277,9 @@ void cleanup(void)
 	free(hvfield);
 	free(particles);
 	cudaFree(dvfield);
-	cudaFree(vxfield);
-	cudaFree(vyfield);
-	cufftDestroy(planr2c);
-	cufftDestroy(planc2r);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glDeleteBuffers(1, &vbo);
-
-	sdkDeleteTimer(&timer);
 }
 
 int initGL(int* argc, char** argv)
@@ -405,8 +322,6 @@ int main(int argc, char** argv)
 
 	printf("%s Starting...\n\n", sSDKname);
 
-	printf("NOTE: The CUDA Samples are not meant for performance measurements. Results may vary when GPU Boost is enabled.\n\n");
-
 	// First initialize OpenGL context, so we can properly set the GL for CUDA.
 	// This is necessary in order to achieve optimal performance with OpenGL/CUDA interop.
 	if (false == initGL(&argc, argv))
@@ -425,18 +340,14 @@ int main(int argc, char** argv)
 	// Allocate and initialize host data
 	GLint bsize;
 
-	sdkCreateTimer(&timer);
-	sdkResetTimer(&timer);
-
 	// velocity
 	hvfield = (cData*)malloc(sizeof(cData) * SHORE);
 	memset(hvfield, 0, sizeof(cData) * SHORE);
 	for (int i = 0; i < SHORE; i++)
 	{
-		/*hvfield[i].x = cos(halphafield[i]) * MAX_SPEED;
-		hvfield[i].y = sin(halphafield[i]) * MAX_SPEED;*/
 		hvfield[i].x = -(myrand()-0.5f) / 100;
-		hvfield[i].y = -(myrand()-0.5f) / 100;
+		hvfield[i].y = -(myrand() - 0.5f) / 100;
+		hvfield[i].z = -(myrand()-0.5f) / 100;
 	}
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
 	cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,
@@ -447,10 +358,6 @@ int main(int argc, char** argv)
 	memset(particles, 0, sizeof(cData) * SHORE_ARR);
 
 	initParticles(particles, SHORE);
-
-	// Create CUFFT transform plan configuration
-	checkCudaErrors(cufftPlan2d(&planr2c, SHORE_ARR, 1, CUFFT_R2C));
-	checkCudaErrors(cufftPlan2d(&planc2r, SHORE_ARR, 1, CUFFT_C2R));
 
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -467,8 +374,16 @@ int main(int argc, char** argv)
 	checkCudaErrors(cudaGraphicsGLRegisterBuffer(&cuda_vbo_resource, vbo, cudaGraphicsMapFlagsNone));
 	getLastCudaError("cudaGraphicsGLRegisterBuffer failed");
 
-	glutCloseFunc(cleanup);
-	glutMainLoop();
+	if (!TEST_TIME)
+	{
+		glutCloseFunc(cleanup);
+		glutMainLoop();
+	}
+	else
+	{
+		test(vbo, dvfield, SHORE_ARR, 1, DT);
+		cleanup();
+	}
 
 	return 0;
 

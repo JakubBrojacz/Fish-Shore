@@ -322,3 +322,29 @@ void advectParticles(GLuint vbo, cData * v, int dx, int dy, float dt)
 	cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
 	getLastCudaError("cudaGraphicsUnmapResources failed");
 }
+
+
+
+extern "C"
+void test(GLuint vbo, cData * v, int dx, int dy, float dt)
+{
+	float sum_milliseconds = 0;
+
+	for (int i = 0; i < 100; i++)
+	{
+		cudaEvent_t start, stop;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+		cudaEventRecord(start);
+
+		advectParticles(vbo, v, dx, dy, dt);
+
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		float milliseconds = 0;
+		cudaEventElapsedTime(&milliseconds, start, stop);
+		sum_milliseconds += milliseconds;
+	}
+	
+	printf("Time: %f", sum_milliseconds);
+}
