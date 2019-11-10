@@ -69,13 +69,13 @@ const float inertia = 0.1f;
 size_t tPitch = 0; // Now this is compatible with gcc in 64-bit
 
 
-extern "C" void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int k, int dx, float dt);
+extern "C" void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int dx, float dt);
 extern "C" void test(GLuint vbo, cData * v, int dx, float dt);
 
 
 void simulateFluids(void)
 {
-	advectParticles(vbo, dvfield, ids, grid_ids, grid_begin, grid_end, GRID_SIZE, SHORE, DT);
+	advectParticles(vbo, dvfield, ids, grid_ids, grid_begin, grid_end, SHORE, DT);
 }
 
 void display(void)

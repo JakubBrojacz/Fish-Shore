@@ -150,8 +150,9 @@ __device__ cData limit(cData c, float m)
 }
 
 
-__global__ void update_k(cData* part, cData* v,
-	int dx, float dt, int* grid_begin, int* grid_end)
+__global__ void update_k(cData* part, cData* v, 
+	int dx, float dt, int* grid_begin, int* grid_end,
+	int* ids)
 {
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -163,6 +164,10 @@ __global__ void update_k(cData* part, cData* v,
 		cData vterm = v[fj];
 		cData fterm = empty();
 
+		int x_grid = int(pterm.x * GRID_SIZE);
+		int y_grid = int(pterm.y * GRID_SIZE);
+		int z_grid = int(pterm.z * GRID_SIZE);
+
 
 		//SHORE FUNCTIONS
 		cData mid_cohesion = empty();
@@ -172,47 +177,54 @@ __global__ void update_k(cData* part, cData* v,
 		int count_cohesion = 0;
 		int count_alignment = 0;
 		int count_separation = 0;
-	
-		for (int i = 0; i < SHORE; i++)
-		{
-			if (i != fj)
-			{
-				float sqr_distance = getSquaredDistance(part[6 * i], pterm);
-
-				//COHESION
-				if (sqr_distance < SIGN_RADIUS * SIGN_RADIUS)
+		
+		for (int x = MAX(1, x_grid) - 1; x <= GRID_SIZE && x <= x_grid + 1; x++)
+			for (int y = MAX(1, y_grid) - 1; y <= GRID_SIZE && y <= y_grid + 1; y++)
+				for (int z = MAX(1, z_grid) - 1; z <= GRID_SIZE && z <= z_grid + 1; z++)
 				{
-					count_cohesion++;
-					mid_cohesion = add(mid_cohesion, part[6 * i]);
-				}
-
-				//ALIGNMENT
-				if (sqr_distance < SIGN_RADIUS * SIGN_RADIUS)
-				{
-					count_alignment++;
-					mid_alignment = add(mid_alignment, v[i]);
-				}
-
-				//SEPARATION
-				if (sqr_distance < SEPARATION_RADIUS * SEPARATION_RADIUS)
-				{
-					count_separation++;
-
-					cData tmp = subtract(pterm, part[6 * i]);
-					tmp = abs(tmp);
-					tmp = multiply(tmp, -1);
-					tmp = add(tmp, SEPARATION_RADIUS);
-
-					if (sqr_distance < SEPARATION_RADIUS * SEPARATION_RADIUS / 100)
+					int grid_id = x + y * GRID_SIZE + z * GRID_SIZE * GRID_SIZE;
+					for (int id = grid_begin[grid_id]; id < grid_end[grid_id]; id++)
 					{
-						tmp = multiply(tmp, 3);
+						int i = ids[id];
+						if (i != fj && i>=0 && i<=dx)
+						{
+							float sqr_distance = getSquaredDistance(part[6 * i], pterm);
+
+							//COHESION
+							if (sqr_distance < SIGN_RADIUS * SIGN_RADIUS)
+							{
+								count_cohesion++;
+								mid_cohesion = add(mid_cohesion, part[6 * i]);
+							}
+
+							//ALIGNMENT
+							if (sqr_distance < SIGN_RADIUS * SIGN_RADIUS)
+							{
+								count_alignment++;
+								mid_alignment = add(mid_alignment, v[i]);
+							}
+
+							//SEPARATION
+							if (sqr_distance < SEPARATION_RADIUS * SEPARATION_RADIUS)
+							{
+								count_separation++;
+
+								cData tmp = subtract(pterm, part[6 * i]);
+								tmp = abs(tmp);
+								tmp = multiply(tmp, -1);
+								tmp = add(tmp, SEPARATION_RADIUS);
+
+								if (sqr_distance < SEPARATION_RADIUS * SEPARATION_RADIUS / 100)
+								{
+									tmp = multiply(tmp, 3);
+								}
+								mid_separation.x += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
+								mid_separation.y += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
+								mid_separation.z += tmp.z * (pterm.z > part[6 * i].z ? 1 : -1);
+							}
+						}
 					}
-					mid_separation.x += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
-					mid_separation.y += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
-					mid_separation.z += tmp.z * (pterm.z > part[6 * i].z ? 1 : -1);
 				}
-			}
-		} //for fish in SHORE
 
 		if (count_cohesion)
 		{
@@ -310,7 +322,7 @@ __global__ void update_k(cData* part, cData* v,
 	}
 }
 
-__global__ void get_grid_location_k(cData* part, int* ids, int* grid_ids, int k, int dx)
+__global__ void get_grid_location_k(cData* part, int* ids, int* grid_ids, int dx)
 {
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -320,7 +332,7 @@ __global__ void get_grid_location_k(cData* part, int* ids, int* grid_ids, int k,
 
 		cData pterm = part[6 * fj];
 
-		grid_ids[fj] = int(pterm.x * k) + int(pterm.y * k) * k + int(pterm.z * k) * k * k;
+		grid_ids[fj] = int(pterm.x * GRID_SIZE) + int(pterm.y * GRID_SIZE) * GRID_SIZE + int(pterm.z * GRID_SIZE) * GRID_SIZE * GRID_SIZE;
 		ids[fj] = fj;
 	}
 }
@@ -350,10 +362,10 @@ __global__ void get_grid_boundries_k(int* grid_ids, int* grid_begin, int* grid_e
 }
 
 extern "C"
-void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int k, int dx, float dt)
+void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int dx, float dt)
 {
-	dim3 grid(dx/1024, 1);
-	dim3 tids(1024, 1);
+	dim3 grid(dx/512, 1);
+	dim3 tids(512, 1);
 
 	cData* p;
 	cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);
@@ -365,7 +377,7 @@ void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_b
 	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
 
-	get_grid_location_k << <grid, tids >>> (p, ids, grid_ids, k, dx);
+	get_grid_location_k << <grid, tids >>> (p, ids, grid_ids, dx);
 	getLastCudaError("get_grid_location_k failed.");
 
 	thrust::device_ptr<int> keys(grid_ids);
@@ -375,12 +387,13 @@ void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_b
 
 	thrust::device_ptr<int> grid_begin_thrust(grid_begin);
 	thrust::device_ptr<int> grid_end_thrust(grid_end);
-	thrust::fill(grid_begin_thrust, grid_begin_thrust + k * k * k, -1);
-	thrust::fill(grid_end_thrust, grid_end_thrust + k * k * k, -1);
+	thrust::fill(grid_begin_thrust, grid_begin_thrust + GRID_SIZE* GRID_SIZE* GRID_SIZE, -1);
+	thrust::fill(grid_end_thrust, grid_end_thrust + GRID_SIZE* GRID_SIZE* GRID_SIZE, -1);
+	getLastCudaError("thrust sorting failed!");
 
 	get_grid_boundries_k <<< grid, tids >>> (grid_ids, grid_begin, grid_end, dx);
 
-	update_k << < grid, tids >> > (p, v, dx, dt, grid_begin, grid_end);
+	update_k << < grid, tids >> > (p, v, dx, dt, grid_begin, grid_end, ids);
 	getLastCudaError("update_k failed.");
 
 
