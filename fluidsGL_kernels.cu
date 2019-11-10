@@ -12,6 +12,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
+#include <thrust/copy.h>
+#include <thrust/sequence.h>
+#include <thrust/random.h>
+#include <thrust/generate.h>
+#include <thrust/detail/type_traits.h>
+
 #include <cuda_runtime.h>
 #include <cufft.h>          // CUDA FFT Libraries
 #include <helper_cuda.h>    // Helper functions for CUDA Error handling
@@ -142,7 +151,7 @@ __device__ cData limit(cData c, float m)
 
 
 __global__ void update_k(cData* part, cData* v,
-	int dx, float dt)
+	int dx, float dt, int* grid_begin, int* grid_end)
 {
 	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -163,6 +172,7 @@ __global__ void update_k(cData* part, cData* v,
 		int count_cohesion = 0;
 		int count_alignment = 0;
 		int count_separation = 0;
+	
 		for (int i = 0; i < SHORE; i++)
 		{
 			if (i != fj)
@@ -300,8 +310,47 @@ __global__ void update_k(cData* part, cData* v,
 	}
 }
 
+__global__ void get_grid_location_k(cData* part, int* ids, int* grid_ids, int k, int dx)
+{
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (gtidx < dx)
+	{
+		int fj = gtidx;
+
+		cData pterm = part[6 * fj];
+
+		grid_ids[fj] = int(pterm.x * k) + int(pterm.y * k) * k + int(pterm.z * k) * k * k;
+		ids[fj] = fj;
+	}
+}
+
+
+__global__ void get_grid_boundries_k(int* grid_ids, int* grid_begin, int* grid_end, int dx)
+{
+	int gtidx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (gtidx < dx)
+	{
+		int fj = gtidx;
+
+		if (fj == 0)
+			grid_begin[grid_ids[fj]] = fj;
+		if (fj == dx - 1)
+			grid_end[grid_ids[fj]] = fj;
+		else
+		{
+			if (grid_ids[fj] != grid_ids[fj + 1])
+			{
+				grid_end[grid_ids[fj] = fj];
+				grid_begin[grid_ids[fj + 1]] = fj + 1;
+			}
+		}
+	}
+}
+
 extern "C"
-void advectParticles(GLuint vbo, cData * v, int dx, float dt)
+void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int k, int dx, float dt)
 {
 	dim3 grid(dx/1024, 1);
 	dim3 tids(1024, 1);
@@ -315,8 +364,25 @@ void advectParticles(GLuint vbo, cData * v, int dx, float dt)
 		cuda_vbo_resource);
 	getLastCudaError("cudaGraphicsResourceGetMappedPointer failed");
 
-	update_k << < grid, tids >> > (p, v, dx, dt);
+
+	get_grid_location_k << <grid, tids >>> (p, ids, grid_ids, k, dx);
+	getLastCudaError("get_grid_location_k failed.");
+
+	thrust::device_ptr<int> keys(grid_ids);
+	thrust::device_ptr<int> values(ids);
+	thrust::sort_by_key(keys, keys + dx, values);
+	getLastCudaError("thrust sorting failed!");
+
+	thrust::device_ptr<int> grid_begin_thrust(grid_begin);
+	thrust::device_ptr<int> grid_end_thrust(grid_end);
+	thrust::fill(grid_begin_thrust, grid_begin_thrust + k * k * k, -1);
+	thrust::fill(grid_end_thrust, grid_end_thrust + k * k * k, -1);
+
+	get_grid_boundries_k <<< grid, tids >>> (grid_ids, grid_begin, grid_end, dx);
+
+	update_k << < grid, tids >> > (p, v, dx, dt, grid_begin, grid_end);
 	getLastCudaError("update_k failed.");
+
 
 	cudaGraphicsUnmapResources(1, &cuda_vbo_resource, 0);
 	getLastCudaError("cudaGraphicsUnmapResources failed");
@@ -337,7 +403,7 @@ void test(GLuint vbo, cData * v, int dx, float dt)
 		cudaEventCreate(&stop);
 		cudaEventRecord(start);
 
-		advectParticles(vbo, v, dx, dt);
+		//advectParticles(vbo, v, dx, dt);
 
 		cudaEventRecord(stop);
 		cudaEventSynchronize(stop);

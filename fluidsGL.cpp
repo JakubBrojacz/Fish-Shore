@@ -51,6 +51,11 @@ static cData* particles = NULL; // particle positions in host memory
 cData* hvfield = NULL;
 cData* dvfield = NULL;
 
+int* grid_ids;
+int* ids;
+int* grid_begin;
+int* grid_end;
+
 //Camera movement data
 int ox, oy;
 int buttonState = 0;
@@ -64,13 +69,13 @@ const float inertia = 0.1f;
 size_t tPitch = 0; // Now this is compatible with gcc in 64-bit
 
 
-extern "C" void advectParticles(GLuint vbo, cData * v, int dx, float dt);
+extern "C" void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int k, int dx, float dt);
 extern "C" void test(GLuint vbo, cData * v, int dx, float dt);
 
 
 void simulateFluids(void)
 {
-	advectParticles(vbo, dvfield, SHORE, DT);
+	advectParticles(vbo, dvfield, ids, grid_ids, grid_begin, grid_end, GRID_SIZE, SHORE, DT);
 }
 
 void display(void)
@@ -156,10 +161,10 @@ void initParticles(cData* p, int shore_count)
 {
 	for (int i = 0; i < shore_count; i++)
 	{
-		p[6 * i].x = (myrand()/2+0.25f);
-		p[6 * i].y = (myrand()/2+0.25f);
+		p[6 * i].x = (myrand() / 2 + 0.25f);
+		p[6 * i].y = (myrand() / 2 + 0.25f);
 #ifdef Z_AXIS
-		p[6 * i].z = (myrand()/2+0.25f);
+		p[6 * i].z = (myrand() / 2 + 0.25f);
 #else
 		p[6 * i].z = 0;
 #endif // Z_AXIS
@@ -345,9 +350,9 @@ int main(int argc, char** argv)
 	memset(hvfield, 0, sizeof(cData) * SHORE);
 	for (int i = 0; i < SHORE; i++)
 	{
-		hvfield[i].x = -(myrand()-0.5f) / 100;
+		hvfield[i].x = -(myrand() - 0.5f) / 100;
 		hvfield[i].y = -(myrand() - 0.5f) / 100;
-		hvfield[i].z = -(myrand()-0.5f) / 100;
+		hvfield[i].z = -(myrand() - 0.5f) / 100;
 	}
 	cudaMallocPitch((void**)&dvfield, &tPitch, sizeof(cData) * SHORE, 1);
 	cudaMemcpy(dvfield, hvfield, sizeof(cData) * SHORE,
@@ -358,6 +363,14 @@ int main(int argc, char** argv)
 	memset(particles, 0, sizeof(cData) * SHORE_ARR);
 
 	initParticles(particles, SHORE);
+
+	//grid arrays
+	checkCudaErrors(cudaMalloc((void**)&ids, sizeof(int) * SHORE));
+	checkCudaErrors(cudaMalloc((void**)&grid_ids, sizeof(int) * SHORE));
+	checkCudaErrors(cudaMalloc((void**)&grid_begin, sizeof(int) * (GRID_SIZE* GRID_SIZE* GRID_SIZE)));
+	checkCudaErrors(cudaMalloc((void**)&grid_end, sizeof(int) * (GRID_SIZE* GRID_SIZE* GRID_SIZE)));
+
+
 
 	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -391,4 +404,4 @@ EXTERR:
 	printf("Failed to initialize GL extensions.\n");
 
 	exit(EXIT_FAILURE);
-	}
+}

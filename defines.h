@@ -13,9 +13,10 @@
 #define DEFINES_H
 
 #define Z_AXIS
-#define TEST_TIME true
+#define TEST_TIME false
 
-#define SHORE 2048
+
+#define SHORE 1024
 #define SHORE_ARR (SHORE * 6)	// each fish consists of 6 points
 
 #define DT     0.09f     // Delta T is constant
@@ -33,5 +34,8 @@
 #define ALI_MULTI 2
 #define COH_MULTI 1
 #define OBS_MULTI 2
+
+
+#define GRID_SIZE (1/SIGN_RADIUS)
 
 #endif
