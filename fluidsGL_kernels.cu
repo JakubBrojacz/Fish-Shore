@@ -160,7 +160,7 @@ __global__ void update_k(cData* part, cData* v,
 	{
 		int fj = gtidx;
 
-		cData pterm = part[6*fj];
+		cData pterm = part[2*fj];
 		cData vterm = v[fj];
 		cData fterm = empty();
 
@@ -188,13 +188,13 @@ __global__ void update_k(cData* part, cData* v,
 						int i = ids[id];
 						if (i != fj && i>=0 && i<=dx)
 						{
-							float sqr_distance = getSquaredDistance(part[6 * i], pterm);
+							float sqr_distance = getSquaredDistance(part[2 * i], pterm);
 
 							//COHESION
 							if (sqr_distance < SIGN_RADIUS * SIGN_RADIUS)
 							{
 								count_cohesion++;
-								mid_cohesion = add(mid_cohesion, part[6 * i]);
+								mid_cohesion = add(mid_cohesion, part[2 * i]);
 							}
 
 							//ALIGNMENT
@@ -209,7 +209,7 @@ __global__ void update_k(cData* part, cData* v,
 							{
 								count_separation++;
 
-								cData tmp = subtract(pterm, part[6 * i]);
+								cData tmp = subtract(pterm, part[2 * i]);
 								tmp = abs(tmp);
 								tmp = multiply(tmp, -1);
 								tmp = add(tmp, SEPARATION_RADIUS);
@@ -218,9 +218,9 @@ __global__ void update_k(cData* part, cData* v,
 								{
 									tmp = multiply(tmp, 3);
 								}
-								mid_separation.x += tmp.x * (pterm.x > part[6 * i].x ? 1 : -1);
-								mid_separation.y += tmp.y * (pterm.y > part[6 * i].y ? 1 : -1);
-								mid_separation.z += tmp.z * (pterm.z > part[6 * i].z ? 1 : -1);
+								mid_separation.x += tmp.x * (pterm.x > part[2 * i].x ? 1 : -1);
+								mid_separation.y += tmp.y * (pterm.y > part[2 * i].y ? 1 : -1);
+								mid_separation.z += tmp.z * (pterm.z > part[2 * i].z ? 1 : -1);
 							}
 						}
 					}
@@ -314,9 +314,8 @@ __global__ void update_k(cData* part, cData* v,
 
 			cData v_scalled = setMagnitude(vterm, size_back);
 
-			part[6 * fj] = pterm;
-			part[6 * fj + 1] = subtract(pterm, v_scalled);
-			part[6 * fj + 2] = part[6 * fj + 3] = part[6 * fj + 4] = part[6 * fj + 5] = empty();
+			part[2 * fj] = pterm;
+			part[2 * fj + 1] = subtract(pterm, v_scalled);
 		}
 
 	}
@@ -330,7 +329,7 @@ __global__ void get_grid_location_k(cData* part, int* ids, int* grid_ids, int dx
 	{
 		int fj = gtidx;
 
-		cData pterm = part[6 * fj];
+		cData pterm = part[2 * fj];
 
 		grid_ids[fj] = int(pterm.x * GRID_SIZE) + int(pterm.y * GRID_SIZE) * GRID_SIZE + int(pterm.z * GRID_SIZE) * GRID_SIZE * GRID_SIZE;
 		ids[fj] = fj;
@@ -349,12 +348,12 @@ __global__ void get_grid_boundries_k(int* grid_ids, int* grid_begin, int* grid_e
 		if (fj == 0)
 			grid_begin[grid_ids[fj]] = fj;
 		if (fj == dx - 1)
-			grid_end[grid_ids[fj]] = fj;
+			grid_end[grid_ids[fj]] = fj+1;
 		else
 		{
 			if (grid_ids[fj] != grid_ids[fj + 1])
 			{
-				grid_end[grid_ids[fj] = fj];
+				grid_end[grid_ids[fj]] = fj+1;
 				grid_begin[grid_ids[fj + 1]] = fj + 1;
 			}
 		}
@@ -391,7 +390,7 @@ void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_b
 	thrust::fill(grid_end_thrust, grid_end_thrust + GRID_SIZE* GRID_SIZE* GRID_SIZE, -1);
 	getLastCudaError("thrust sorting failed!");
 
-	get_grid_boundries_k <<< grid, tids >>> (grid_ids, grid_begin, grid_end, dx);
+	get_grid_boundries_k <<< grid, tids >>> (grid_ids, grid_begin, grid_end, GRID_SIZE * GRID_SIZE * GRID_SIZE);
 
 	update_k << < grid, tids >> > (p, v, dx, dt, grid_begin, grid_end, ids);
 	getLastCudaError("update_k failed.");

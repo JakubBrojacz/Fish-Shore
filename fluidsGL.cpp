@@ -161,29 +161,17 @@ void initParticles(cData* p, int shore_count)
 {
 	for (int i = 0; i < shore_count; i++)
 	{
-		p[6 * i].x = (myrand() / 2 + 0.25f);
-		p[6 * i].y = (myrand() / 2 + 0.25f);
+		p[2 * i].x = (myrand() / 2 + 0.25f);
+		p[2 * i].y = (myrand() / 2 + 0.25f);
 #ifdef Z_AXIS
-		p[6 * i].z = (myrand() / 2 + 0.25f);
+		p[2 * i].z = (myrand() / 2 + 0.25f);
 #else
-		p[6 * i].z = 0;
+		p[2 * i].z = 0;
 #endif // Z_AXIS
 
-		p[6 * i + 1].x = p[6 * i].x + 0.02f;
-		p[6 * i + 1].y = p[6 * i].y + 0.02f;
-		p[6 * i + 1].z = p[6 * i].z;
-		p[6 * i + 2].x = p[6 * i].x;
-		p[6 * i + 2].y = p[6 * i].y;
-		p[6 * i + 2].z = p[6 * i].z;
-		p[6 * i + 3].x = p[6 * i].x + 0.01f;
-		p[6 * i + 3].y = p[6 * i].y;
-		p[6 * i + 3].z = p[6 * i].z;
-		p[6 * i + 4].x = p[6 * i].x;
-		p[6 * i + 4].y = p[6 * i].y;
-		p[6 * i + 4].z = p[6 * i].z;
-		p[6 * i + 5].x = p[6 * i].x;
-		p[6 * i + 5].y = p[6 * i].y + 0.01f;
-		p[6 * i + 5].z = p[6 * i].z;
+		p[2 * i + 1].x = p[2 * i].x + 0.02f;
+		p[2 * i + 1].y = p[2 * i].y + 0.02f;
+		p[2 * i + 1].z = p[2 * i].z;
 	}
 }
 

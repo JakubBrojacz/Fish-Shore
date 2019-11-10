@@ -17,25 +17,25 @@
 
 
 #define SHORE 512
-#define SHORE_ARR (SHORE * 6)	// each fish consists of 6 points
+#define SHORE_ARR (SHORE * 2)	// each fish consists of 2 points
 
 #define DT     0.09f     // Delta T is constant
 
-#define FISH_SIZE 0.5
+#define FISH_SIZE 0.5f
 
-#define SIGN_RADIUS	(0.04 * FISH_SIZE)
-#define SEPARATION_RADIUS (0.02 * FISH_SIZE)
-#define OBSTACLES_RADIUS 0.025
+#define SIGN_RADIUS	(0.04f * FISH_SIZE)
+#define SEPARATION_RADIUS (0.02f * FISH_SIZE)
+#define OBSTACLES_RADIUS 0.025f
 
-#define MAX_SPEED 0.01
-#define MAX_FORCE 0.0015
+#define MAX_SPEED 0.01f
+#define MAX_FORCE 0.0015f
 
-#define SEP_MULTI 3
-#define ALI_MULTI 2
-#define COH_MULTI 1
-#define OBS_MULTI 2
+#define SEP_MULTI 3.f
+#define ALI_MULTI 2.f
+#define COH_MULTI 1.f
+#define OBS_MULTI 2.f
 
 
-#define GRID_SIZE (1/SIGN_RADIUS)
+#define GRID_SIZE (1.0f/SIGN_RADIUS)
 
 #endif
