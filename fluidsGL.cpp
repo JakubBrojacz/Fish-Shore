@@ -1,14 +1,3 @@
-/*
- * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
-
  // OpenGL Graphics includes
 #include <helper_gl.h>
 
@@ -59,9 +48,9 @@ int* grid_end;
 //Camera movement data
 int ox, oy;
 int buttonState = 0;
-float camera_trans[] = { 0, 0, -1 };
+float camera_trans[] = { 0, 0, 2 };
 float camera_rot[] = { 0, 0, 0 };
-float camera_trans_lag[] = { 0, 0, -1 };
+float camera_trans_lag[] = { 0, 0, 2 };
 float camera_rot_lag[] = { 0, 0, 0 };
 const float inertia = 0.1f;
 
@@ -93,9 +82,30 @@ void display(void)
 	}
 
 	glPushMatrix();
-	glTranslatef(camera_trans_lag[0], camera_trans_lag[1], camera_trans_lag[2]);
-	glRotatef(camera_rot_lag[0], 1.0, 0.0, 0.0);
-	glRotatef(camera_rot_lag[1], 0.0, 1.0, 0.0);
+	//glLoadIdentity();
+	//glLoadIdentity();
+	gluPerspective(90, 1, 1, 8);
+	//glOrtho(-1, 1, -1, 1, 1, 3);
+
+	float r = 1.5f;
+	float r_horizontal = r * cos(camera_trans_lag[0]);
+	/*gluLookAt(
+		r_horizontal * cos(camera_trans_lag[1])-1,
+		r_horizontal * sin(camera_trans_lag[1]),
+		r * sin(camera_trans_lag[0]) + camera_trans_lag[2],
+		0.1, 0.1, -10, 0, 1, 0);*/
+	glTranslatef(0.5, 0.5, 0);
+	gluLookAt(
+		0.5+ r_horizontal * cos(camera_trans_lag[1]),
+		0.5+ r_horizontal * sin(camera_trans_lag[1]),
+		0.5+ r * sin(camera_trans_lag[0]),
+		0.5, 0.5, 0.5, 0, 1, 0);
+
+
+	//glTranslatef(camera_trans_lag[0], camera_trans_lag[1], camera_trans_lag[2]);
+	//glRotatef(camera_rot_lag[0], 1.0, 0.0, 0.0);
+	//glRotatef(camera_rot_lag[1], 0.0, 1.0, 0.0);
+	//gluPerspective(1, 1, -0.1, -100);
 
 	glColor4f(1, 0, 0, 0.5f);
 	glPointSize(1);
@@ -125,6 +135,7 @@ void display(void)
 	glVertex3f(0.25, 0.25, 0.75);
 	glVertex3f(0.25, 0.75, 0.75);
 
+	
 	glEnd();
 
 
@@ -138,7 +149,9 @@ void display(void)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glDisableClientState(GL_VERTEX_ARRAY);
 
+
 	glPopMatrix();
+
 
 
 	glutSwapBuffers();

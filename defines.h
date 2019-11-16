@@ -16,7 +16,7 @@
 #define TEST_TIME false
 
 
-#define SHORE 512
+#define SHORE 4096
 #define SHORE_ARR (SHORE * 2)	// each fish consists of 2 points
 
 #define DT     0.09f     // Delta T is constant
@@ -36,6 +36,6 @@
 #define OBS_MULTI 2.f
 
 
-#define GRID_SIZE (1.0f/SIGN_RADIUS)
+#define GRID_SIZE ((int)(1.0f/SIGN_RADIUS))
 
 #endif
