@@ -354,8 +354,8 @@ __global__ void get_grid_boundries_k(int* grid_ids, int* grid_begin, int* grid_e
 extern "C"
 void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int dx, float dt)
 {
-	dim3 grid(dx/512, 1);
-	dim3 tids(512, 1);
+	dim3 grid(dx/128, 1);
+	dim3 tids(128, 1);
 
 	cData* p;
 	cudaGraphicsMapResources(1, &cuda_vbo_resource, 0);

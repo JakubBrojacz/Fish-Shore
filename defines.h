@@ -16,12 +16,12 @@
 #define TEST_TIME false
 
 
-#define SHORE 4096
+#define SHORE (4096*4)
 #define SHORE_ARR (SHORE * 2)	// each fish consists of 2 points
 
 #define DT     0.09f     // Delta T is constant
 
-#define FISH_SIZE 0.5f
+#define FISH_SIZE 0.2f
 
 #define MIN_DIM 0.25
 #define MAX_DIM 0.75
