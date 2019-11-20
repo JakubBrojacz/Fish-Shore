@@ -31,7 +31,7 @@
 #define MAX_FORCE 0.0015f
 
 #define SEP_MULTI 3.f
-#define ALI_MULTI 2.f
+#define ALI_MULTI 5.f
 #define COH_MULTI 1.f
 #define OBS_MULTI 2.f
 

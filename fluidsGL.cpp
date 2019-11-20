@@ -48,10 +48,8 @@ int* grid_end;
 //Camera movement data
 int ox, oy;
 int buttonState = 0;
-float camera_trans[] = { 0, 0, 2 };
-float camera_rot[] = { 0, 0, 0 };
-float camera_trans_lag[] = { 0, 0, 2 };
-float camera_rot_lag[] = { 0, 0, 0 };
+float camera_trans[] = { 0, 0, 1 };
+float camera_trans_lag[] = { 0, 0, 1 };
 const float inertia = 0.1f;
 
 // Texture pitch
@@ -73,39 +71,24 @@ void display(void)
 
 	// render points from vertex buffer
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
 
 	for (int c = 0; c < 3; ++c)
 	{
 		camera_trans_lag[c] += (camera_trans[c] - camera_trans_lag[c]) * inertia;
-		camera_rot_lag[c] += (camera_rot[c] - camera_rot_lag[c]) * inertia;
 	}
 
 	glPushMatrix();
-	//glLoadIdentity();
-	//glLoadIdentity();
 	gluPerspective(90, 1, 1, 8);
-	//glOrtho(-1, 1, -1, 1, 1, 3);
 
-	float r = 1.5f;
+	float r = 1.5f* camera_trans_lag[2];
 	float r_horizontal = r * cos(camera_trans_lag[0]);
-	/*gluLookAt(
-		r_horizontal * cos(camera_trans_lag[1])-1,
-		r_horizontal * sin(camera_trans_lag[1]),
-		r * sin(camera_trans_lag[0]) + camera_trans_lag[2],
-		0.1, 0.1, -10, 0, 1, 0);*/
-	glTranslatef(0.5, 0.5, 0);
+
+	glTranslatef(0.5, 0.5, 0.1);
 	gluLookAt(
 		0.5+ r_horizontal * cos(camera_trans_lag[1]),
 		0.5+ r_horizontal * sin(camera_trans_lag[1]),
 		0.5+ r * sin(camera_trans_lag[0]),
 		0.5, 0.5, 0.5, 0, 1, 0);
-
-
-	//glTranslatef(camera_trans_lag[0], camera_trans_lag[1], camera_trans_lag[2]);
-	//glRotatef(camera_rot_lag[0], 1.0, 0.0, 0.0);
-	//glRotatef(camera_rot_lag[1], 0.0, 1.0, 0.0);
-	//gluPerspective(1, 1, -0.1, -100);
 
 	glColor4f(1, 0, 0, 0.5f);
 	glPointSize(1);
@@ -215,14 +198,13 @@ void motion(int x, int y)
 	else if (buttonState & 2)
 	{
 		// middle = translate
-		camera_trans[0] += dx / 100.0f;
-		camera_trans[1] -= dy / 100.0f;
+		
 	}
 	else if (buttonState & 1)
 	{
 		// left = rotate
-		camera_rot[0] += dy / 5.0f;
-		camera_rot[1] += dx / 5.0f;
+		camera_trans[0] += dx / 100.0f;
+		camera_trans[1] -= dy / 100.0f;
 	}
 
 
