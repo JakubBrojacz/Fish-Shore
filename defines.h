@@ -39,6 +39,6 @@
 #define OBS_MULTI 2.f
 
 
-#define GRID_SIZE ((int)(1.0f/SIGN_RADIUS))
+#define GRID_SIZE ((int)((MAX_DIM-MIN_DIM)/SIGN_RADIUS))
 
 #endif

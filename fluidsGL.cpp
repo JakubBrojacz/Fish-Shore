@@ -94,14 +94,6 @@ void display(void)
 		0.5 + r_horizontal * sin(camera_trans_lag[1]),
 		0.5 + r * sin(camera_trans_lag[0]),
 		0.5, 0.5, 0.5, 0, 1, 0);
-
-	//glRotatef(camera_trans_lag[1], 0, 0, 1);
-
-	//glTranslatef(0.5, 0.5, 0.5);
-
-
-	
-
 	
 
 	glColor4f(1, 0, 0, 0.5f);

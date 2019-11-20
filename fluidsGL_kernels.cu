@@ -153,9 +153,9 @@ __global__ void update_k(cData* part, cData* v,
 		cData vterm = v[fj];
 		cData fterm = empty();
 
-		int x_grid = int(pterm.x * GRID_SIZE);
-		int y_grid = int(pterm.y * GRID_SIZE);
-		int z_grid = int(pterm.z * GRID_SIZE);
+		int x_grid = int((pterm.x-MIN_DIM) * GRID_SIZE);
+		int y_grid = int((pterm.y-MIN_DIM) * GRID_SIZE);
+		int z_grid = int((pterm.z-MIN_DIM) * GRID_SIZE);
 
 
 		//SHORE FUNCTIONS
@@ -320,7 +320,9 @@ __global__ void get_grid_location_k(cData* part, int* ids, int* grid_ids, int dx
 
 		cData pterm = part[2 * fj];
 
-		grid_ids[fj] = int(pterm.x * GRID_SIZE) + int(pterm.y * GRID_SIZE) * GRID_SIZE + int(pterm.z * GRID_SIZE) * GRID_SIZE * GRID_SIZE;
+		grid_ids[fj] = int((pterm.x-MIN_DIM) * GRID_SIZE) + 
+			int((pterm.y-MIN_DIM) * GRID_SIZE) * GRID_SIZE + 
+			int((pterm.z-MIN_DIM) * GRID_SIZE) * GRID_SIZE * GRID_SIZE;
 		ids[fj] = fj;
 	}
 }
