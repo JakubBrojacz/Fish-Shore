@@ -23,6 +23,9 @@
 
 #define FISH_SIZE 0.5f
 
+#define MIN_DIM 0.25
+#define MAX_DIM 0.75
+
 #define SIGN_RADIUS	(0.04f * FISH_SIZE)
 #define SEPARATION_RADIUS (0.02f * FISH_SIZE)
 #define OBSTACLES_RADIUS 0.025f

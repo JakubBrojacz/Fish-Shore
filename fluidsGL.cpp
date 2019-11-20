@@ -78,45 +78,59 @@ void display(void)
 	}
 
 	glPushMatrix();
-	gluPerspective(90, 1, 1, 8);
 
-	float r = 1.5f* camera_trans_lag[2];
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(90, 1, 0.1, 8);
+
+	glMatrixMode(GL_MODELVIEW);
+
+
+	float r = 1.5f * camera_trans_lag[2];
 	float r_horizontal = r * cos(camera_trans_lag[0]);
 
-	glTranslatef(0.5, 0.5, 0.1);
 	gluLookAt(
-		0.5+ r_horizontal * cos(camera_trans_lag[1]),
-		0.5+ r_horizontal * sin(camera_trans_lag[1]),
-		0.5+ r * sin(camera_trans_lag[0]),
+		0.5 + r_horizontal * cos(camera_trans_lag[1]),
+		0.5 + r_horizontal * sin(camera_trans_lag[1]),
+		0.5 + r * sin(camera_trans_lag[0]),
 		0.5, 0.5, 0.5, 0, 1, 0);
+
+	//glRotatef(camera_trans_lag[1], 0, 0, 1);
+
+	//glTranslatef(0.5, 0.5, 0.5);
+
+
+	
+
+	
 
 	glColor4f(1, 0, 0, 0.5f);
 	glPointSize(1);
 	glBegin(GL_LINES);
-	glVertex3f(0.25, 0.25, 0.25);
-	glVertex3f(0.75, 0.25, 0.25);
-	glVertex3f(0.25, 0.25, 0.25);
-	glVertex3f(0.25, 0.75, 0.25);
-	glVertex3f(0.25, 0.25, 0.25);
-	glVertex3f(0.25, 0.25, 0.75);
-	glVertex3f(0.75, 0.75, 0.75);
-	glVertex3f(0.25, 0.75, 0.75);
-	glVertex3f(0.75, 0.75, 0.75);
-	glVertex3f(0.75, 0.25, 0.75);
-	glVertex3f(0.75, 0.75, 0.75);
-	glVertex3f(0.75, 0.75, 0.25);
-	glVertex3f(0.75, 0.25, 0.25);
-	glVertex3f(0.75, 0.75, 0.25);
-	glVertex3f(0.75, 0.25, 0.25);
-	glVertex3f(0.75, 0.25, 0.75);
-	glVertex3f(0.25, 0.75, 0.25);
-	glVertex3f(0.75, 0.75, 0.25);
-	glVertex3f(0.25, 0.75, 0.25);
-	glVertex3f(0.25, 0.75, 0.75);
-	glVertex3f(0.25, 0.25, 0.75);
-	glVertex3f(0.75, 0.25, 0.75);
-	glVertex3f(0.25, 0.25, 0.75);
-	glVertex3f(0.25, 0.75, 0.75);
+	glVertex3f(MIN_DIM, MIN_DIM, MIN_DIM);
+	glVertex3f(MAX_DIM, MIN_DIM, MIN_DIM);
+	glVertex3f(MIN_DIM, MIN_DIM, MIN_DIM);
+	glVertex3f(MIN_DIM, MAX_DIM, MIN_DIM);
+	glVertex3f(MIN_DIM, MIN_DIM, MIN_DIM);
+	glVertex3f(MIN_DIM, MIN_DIM, MAX_DIM);
+	glVertex3f(MAX_DIM, MAX_DIM, MAX_DIM);
+	glVertex3f(MIN_DIM, MAX_DIM, MAX_DIM);
+	glVertex3f(MAX_DIM, MAX_DIM, MAX_DIM);
+	glVertex3f(MAX_DIM, MIN_DIM, MAX_DIM);
+	glVertex3f(MAX_DIM, MAX_DIM, MAX_DIM);
+	glVertex3f(MAX_DIM, MAX_DIM, MIN_DIM);
+	glVertex3f(MAX_DIM, MIN_DIM, MIN_DIM);
+	glVertex3f(MAX_DIM, MAX_DIM, MIN_DIM);
+	glVertex3f(MAX_DIM, MIN_DIM, MIN_DIM);
+	glVertex3f(MAX_DIM, MIN_DIM, MAX_DIM);
+	glVertex3f(MIN_DIM, MAX_DIM, MIN_DIM);
+	glVertex3f(MAX_DIM, MAX_DIM, MIN_DIM);
+	glVertex3f(MIN_DIM, MAX_DIM, MIN_DIM);
+	glVertex3f(MIN_DIM, MAX_DIM, MAX_DIM);
+	glVertex3f(MIN_DIM, MIN_DIM, MAX_DIM);
+	glVertex3f(MAX_DIM, MIN_DIM, MAX_DIM);
+	glVertex3f(MIN_DIM, MIN_DIM, MAX_DIM);
+	glVertex3f(MIN_DIM, MAX_DIM, MAX_DIM);
 
 	
 	glEnd();
@@ -157,10 +171,10 @@ void initParticles(cData* p, int shore_count)
 {
 	for (int i = 0; i < shore_count; i++)
 	{
-		p[2 * i].x = (myrand() / 2 + 0.25f);
-		p[2 * i].y = (myrand() / 2 + 0.25f);
+		p[2 * i].x = (myrand() / 2 + MIN_DIM);
+		p[2 * i].y = (myrand() / 2 + MIN_DIM);
 #ifdef Z_AXIS
-		p[2 * i].z = (myrand() / 2 + 0.25f);
+		p[2 * i].z = (myrand() / 2 + MIN_DIM);
 #else
 		p[2 * i].z = 0;
 #endif // Z_AXIS

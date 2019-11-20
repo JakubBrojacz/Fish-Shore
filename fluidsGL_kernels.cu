@@ -247,32 +247,32 @@ __global__ void update_k(cData* part, cData* v,
 
 		//AVOID OBSTACLES
 		float r = OBSTACLES_RADIUS;
-		if (pterm.x < 0.25 + r)
+		if (pterm.x < MIN_DIM + r)
 		{
-			mid_obstacles.x += 0.25 + r - pterm.x;
+			mid_obstacles.x += MIN_DIM + r - pterm.x;
 		}
-		if (pterm.y < 0.25 + r)
+		if (pterm.y < MIN_DIM + r)
 		{
-			mid_obstacles.y += 0.25 + r - pterm.y;
+			mid_obstacles.y += MIN_DIM + r - pterm.y;
 		}
-		if (pterm.z < 0.25 + r)
+		if (pterm.z < MIN_DIM + r)
 		{
 #ifdef Z_AXIS
-			mid_obstacles.z += 0.25 + r - pterm.z;
+			mid_obstacles.z += MIN_DIM + r - pterm.z;
 #endif // Z_AXIS
 		}
-		if (pterm.x > 0.75 - r)
+		if (pterm.x > MAX_DIM - r)
 		{
-			mid_obstacles.x += (0.75 - pterm.x) - r;
+			mid_obstacles.x += (MAX_DIM - pterm.x) - r;
 		}
-		if (pterm.y > 0.75 - r)
+		if (pterm.y > MAX_DIM - r)
 		{
-			mid_obstacles.y += (0.75 - pterm.y) - r;
+			mid_obstacles.y += (MAX_DIM - pterm.y) - r;
 		}
-		if (pterm.z > 0.75 - r)
+		if (pterm.z > MAX_DIM - r)
 		{
 #ifdef Z_AXIS
-			mid_obstacles.z += (0.75 - pterm.z) - r;
+			mid_obstacles.z += (MAX_DIM - pterm.z) - r;
 #endif // Z_AXIS
 		}
 
