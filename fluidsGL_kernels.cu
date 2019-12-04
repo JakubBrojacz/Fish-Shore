@@ -28,6 +28,8 @@
 // Particle data
 extern GLuint vbo;                 // OpenGL vertex buffer object
 extern struct cudaGraphicsResource* cuda_vbo_resource; // handles OpenGL-CUDA exchange
+extern GLuint vbo_1;                 // OpenGL vertex buffer object
+extern struct cudaGraphicsResource* cuda_vbo_resource_1; // handles OpenGL-CUDA exchange
 
 
 __device__ inline cData empty()
@@ -352,7 +354,7 @@ __global__ void get_grid_boundries_k(int* grid_ids, int* grid_begin, int* grid_e
 }
 
 extern "C"
-void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int dx, float dt)
+void advectParticles(GLuint vbo, cData * v, struct cudaGraphicsResource* cuda_vbo_resource, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int dx, float dt)
 {
 	dim3 grid(dx/128, 1);
 	dim3 tids(128, 1);
@@ -394,10 +396,12 @@ void advectParticles(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_b
 
 
 extern "C"
-void test(GLuint vbo, cData * v, int dx, float dt)
+void test(GLuint vbo, cData * v, int* ids, int* grid_ids, int* grid_begin, int* grid_end, int dx, float dt)
 {
+	printf("Begin tests\n");
+
 	float sum_milliseconds = 0;
-	int times = 100;
+	int times = 1000;
 
 	for (int i = 0; i < times; i++)
 	{
@@ -406,7 +410,7 @@ void test(GLuint vbo, cData * v, int dx, float dt)
 		cudaEventCreate(&stop);
 		cudaEventRecord(start);
 
-		//advectParticles(vbo, v, dx, dt);
+		//advectParticles(vbo, v, ids, grid_ids, grid_begin, grid_end, dx, dt);
 
 		cudaEventRecord(stop);
 		cudaEventSynchronize(stop);
@@ -415,5 +419,5 @@ void test(GLuint vbo, cData * v, int dx, float dt)
 		sum_milliseconds += milliseconds;
 	}
 	
-	printf("Avarage time of update: %f", sum_milliseconds/times);
+	printf("Avarage time of update: %f milliseconds\n", sum_milliseconds/times);
 }

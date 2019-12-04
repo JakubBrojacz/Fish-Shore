@@ -1,14 +1,3 @@
-/*
- * Copyright 1993-2015 NVIDIA Corporation.  All rights reserved.
- *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
- */
- 
 #ifndef DEFINES_H
 #define DEFINES_H
 
@@ -17,14 +6,13 @@
 
 
 #define SHORE (4096*4)
-#define SHORE_ARR (SHORE * 2)	// each fish consists of 2 points
+ // each fish consists of 2 points
+#define SHORE_ARR (SHORE * 2)
 
-#define DT     0.09f     // Delta T is constant
+// Delta T is constant
+#define DT 0.09f
 
 #define FISH_SIZE 0.2f
-
-#define MIN_DIM 0.25
-#define MAX_DIM 0.75
 
 #define SIGN_RADIUS	(0.04f * FISH_SIZE)
 #define SEPARATION_RADIUS (0.02f * FISH_SIZE)
@@ -33,11 +21,15 @@
 #define MAX_SPEED 0.01f
 #define MAX_FORCE 0.0015f
 
+//how much seperate values affect fish
 #define SEP_MULTI 3.f
 #define ALI_MULTI 5.f
 #define COH_MULTI 1.f
 #define OBS_MULTI 2.f
 
+
+#define MIN_DIM 0.25
+#define MAX_DIM 0.75
 
 #define GRID_SIZE ((int)((MAX_DIM-MIN_DIM)/SIGN_RADIUS))
 
