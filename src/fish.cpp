@@ -215,7 +215,7 @@ float myrand(void)
 
 void initParticles(cData* p, cData* p_1, int shore_count)
 {
-	Bitmap* bmp = readBMP("../resources/logo_mini.bmp");
+	Bitmap* bmp = readBMP("./resources/logo_mini.bmp");
 
 	int iter = 0;
 	int gap = 8;
