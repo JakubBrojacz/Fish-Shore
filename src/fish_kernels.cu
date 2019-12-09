@@ -20,7 +20,7 @@
 
 
 // FluidsGL CUDA kernel definitions
-#include "fluidsGL_kernels.cuh"
+#include "fish_kernels.cuh"
 
 
 #define M_PI 3.14159265

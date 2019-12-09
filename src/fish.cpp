@@ -21,7 +21,7 @@
 #include <helper_cuda.h>
 
 #include "defines.h"
-#include "fluidsGL_kernels.h"
+#include "fish_kernels.h"
 
 const char* sSDKname = "FishShore";
 

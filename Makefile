@@ -1,3 +1,5 @@
+OS_SUFFIX = linux/aarch64
+
 CU_SRCS += \
 src/fish_kernels.cu 
 
@@ -15,7 +17,7 @@ CPP_DEPS += \
 obj/fish.d 
 
 
-USER_OBJS := common/lib/$(OS_SUFFIX)/libGLEW.a
+USER_OBJS := /opt/cuda/samples/common/lib/$(OS_SUFFIX)/libGLEW.a
 
 LIBS := -lcufft
 
@@ -43,7 +45,7 @@ obj/%.o: src/%.cpp
 	@echo 'Finished building: $<'
 	@echo ' '
 
-src/%.o: src/%.cu
+obj/%.o: src/%.cu
 	@echo 'Building file: $<'
 	@echo 'Invoking: NVCC Compiler'
 	/opt/cuda/bin/nvcc -I"/opt/cuda/samples/5_Simulations" -I"/opt/cuda/samples/common/inc" -I"scr" -G -g -O0 -gencode arch=compute_61,code=sm_61  -odir "obj" -M -o "$(@:%.o=%.d)" "$<"
